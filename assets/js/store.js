@@ -1,5 +1,6 @@
-const DB_KEY='leminh_users_v1',SESS_KEY='leminh_session_v1',AVATAR_KEY='leminh_avatar_v1',
-      CFG_KEY='leminh_config_v1',KEYS_KEY='leminh_keys_v1',DEP_KEY='leminh_deposits_v1';
+const DB_KEY='leminh_users_v2',SESS_KEY='leminh_session_v2',AVATAR_KEY='leminh_avatar_v2',
+      CFG_KEY='leminh_config_v2',KEYS_KEY='leminh_keys_v2',DEP_KEY='leminh_deposits_v2',
+      MUSIC_ON_KEY='leminh_music_on';
 
 const DEFAULT_AVATAR="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect fill='%23e0f2fe' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>";
 
@@ -58,6 +59,8 @@ function loadConfig(){
     if(!c.bank)c.bank=d.bank;
     if(!c.site_name)c.site_name=d.site_name;
     if(c.login_avatar===undefined)c.login_avatar='';
+    if(c.bg_music===undefined)c.bg_music='';
+    if(c.bg_music_enabled===undefined)c.bg_music_enabled=1;
     return c;
   }catch(e){return JSON.parse(JSON.stringify(window.APP_CONFIG));}
 }
@@ -66,17 +69,9 @@ function saveConfig(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 function loadKeys(){try{return JSON.parse(localStorage.getItem(KEYS_KEY)||'[]');}catch(e){return[];}}
 function saveKeys(a){localStorage.setItem(KEYS_KEY,JSON.stringify(a));}
 function genKey(){const C='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const g=()=>Array.from({length:4},()=>C[Math.floor(Math.random()*C.length)]).join('');return `${g()}-${g()}-${g()}`;}
-function createKey(days,note){
-  const arr=loadKeys();
-  const k={key:genKey(),days:days,note:note||'',used:false,usedBy:'',createdAt:now(),usedAt:0};
-  arr.push(k);saveKeys(arr);return k;
-}
+function createKey(days,note){const arr=loadKeys();const k={key:genKey(),days:days,note:note||'',used:false,usedBy:'',createdAt:now(),usedAt:0};arr.push(k);saveKeys(arr);return k;}
 function findKey(code){return loadKeys().find(k=>k.key.toUpperCase()===String(code).toUpperCase().trim())||null;}
-function markKeyUsed(code,email){
-  const arr=loadKeys();
-  const k=arr.find(x=>x.key.toUpperCase()===String(code).toUpperCase().trim());
-  if(k){k.used=true;k.usedBy=email;k.usedAt=now();saveKeys(arr);}
-}
+function markKeyUsed(code,email){const arr=loadKeys();const k=arr.find(x=>x.key.toUpperCase()===String(code).toUpperCase().trim());if(k){k.used=true;k.usedBy=email;k.usedAt=now();saveKeys(arr);}}
 
 function loadDeposits(){try{return JSON.parse(localStorage.getItem(DEP_KEY)||'[]');}catch(e){return[];}}
 function saveDeposits(a){localStorage.setItem(DEP_KEY,JSON.stringify(a));}
