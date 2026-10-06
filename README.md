@@ -1,19 +1,12 @@
-#  TOOL LEMINH
-
-## Deploy GitHub Pages
-1. Tạo repo **public**
-2. Upload nguyên cấu trúc thư mục bên trên
-3. Settings → Pages → Source: main/root → Save
-4. Truy cập: `https://<username>.github.io/<repo>/`
-
-## Tài khoản Admin mặc định
-- **Email**: `leminhdz@gmail.com`
-- **Mật khẩu**: `admin123`
-
-## Chức năng
-- Đăng ký / Đăng nhập + Avatar Base64
-- Nút 3 gạch: Lịch sử nạp tiền · Lịch sử mua key · Admin (chỉ admin)
-- Ấn "MỞ TOOL" → tự vào link game + panel thuật toán đọc API
-- Số dư = 0 → không mua được key → không mở được tool
-- Admin: duyệt tiền · cấp tiền · xem IP · xem API user
-- Nạp tiền: hiển thị STK + QR (Base64 do admin cấu hình)
+#  TOOL ZENO 
+## Deploy
+1. Repo public → Upload 8 file → Settings/Pages/main/root → Save
+## Admin
+- Email: `leminhdz@gmail.com` | Pass: `admin123`
+## Tính năng
+- Đăng nhập/Đăng ký · Avatar Base64 (login riêng, tool riêng)
+- Nút 3 gạch: Lịch sử nạp · Lịch sử key · Admin (chỉ admin)
+- Ấn MỞ TOOL → tự vào game + panel AI đọc API
+- **Nhạc nền** bật/tắt trên header (admin cấu hình URL hoặc Base64)
+- **Nạp tiền** hiện QR Base64 cỡ lớn
+- Số dư = 0 → không mua key → không mở tool
