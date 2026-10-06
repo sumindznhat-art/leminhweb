@@ -1,5 +1,5 @@
 /* ============================================================
-   AUTH.JS - Login / Register / Key
+   AUTH.JS - Login / Register / Key (không chặn màn hình)
    ============================================================ */
 function shakeEl(el){ el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),500); }
 
@@ -8,16 +8,28 @@ function switchTab(t){
   const fl = document.getElementById('formLogin'), fr = document.getElementById('formReg');
   const sub = document.getElementById('subText');
   document.getElementById('loginError').textContent = '';
-  if(t === 'login'){ tl.classList.add('active'); tr.classList.remove('active'); fl.style.display='block'; fr.style.display='none'; sub.textContent='Đăng nhập hệ thống'; }
-  else { tr.classList.add('active'); tl.classList.remove('active'); fl.style.display='none'; fr.style.display='block'; sub.textContent='Tạo tài khoản mới'; }
+  if(t === 'login'){
+    tl.classList.add('active'); tr.classList.remove('active');
+    fl.style.display = 'block'; fr.style.display = 'none';
+    sub.textContent = 'Đăng nhập hệ thống';
+  } else {
+    tr.classList.add('active'); tl.classList.remove('active');
+    fl.style.display = 'none'; fr.style.display = 'block';
+    sub.textContent = 'Tạo tài khoản mới';
+  }
 }
+
 async function fetchIP(){
   try{
-    const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(),4000);
-    const r = await fetch('https://api.ipify.org?format=json', {signal:ctrl.signal});
-    clearTimeout(t); const d = await r.json(); return d.ip || 'unknown';
-  }catch(e){ return 'unknown'; }
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 4000);
+    const r = await fetch('https://api.ipify.org?format=json', {signal: ctrl.signal});
+    clearTimeout(t);
+    const d = await r.json();
+    return d.ip || 'unknown';
+  } catch(e){ return 'unknown'; }
 }
+
 function doLogin(){
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const pass = document.getElementById('loginPass').value;
@@ -29,8 +41,12 @@ function doLogin(){
   setTimeout(async () => {
     const u = getUser(email);
     if(!u || u.password !== pass){
-      sp.style.display='none'; bt.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP'; btn.disabled=false;
-      err.textContent='❌ Sai email hoặc mật khẩu!'; shakeEl(document.getElementById('loginPass')); return;
+      sp.style.display = 'none';
+      bt.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP';
+      btn.disabled = false;
+      err.textContent = '❌ Sai email hoặc mật khẩu!';
+      shakeEl(document.getElementById('loginPass'));
+      return;
     }
     const ip = await fetchIP();
     u.ip = ip; u.lastLogin = now();
@@ -40,6 +56,7 @@ function doLogin(){
     setTimeout(enterApp, 500);
   }, 400);
 }
+
 function doRegister(){
   const name = document.getElementById('regName').value.trim();
   const email = document.getElementById('regEmail').value.trim().toLowerCase();
@@ -48,30 +65,38 @@ function doRegister(){
   const err = document.getElementById('loginError');
   const btn = document.getElementById('btnReg'), sp = document.getElementById('regSpinner'), bt = document.getElementById('btnRegText');
   err.textContent = ''; err.style.color = '#ef4444';
-  if(!name || !email || !pass || !pass2){ err.textContent='⚠️ Điền đầy đủ!'; return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent='⚠️ Email không hợp lệ!'; return; }
-  if(pass.length < 6){ err.textContent='⚠️ Mật khẩu ≥6 ký tự!'; return; }
-  if(pass !== pass2){ err.textContent='⚠️ Không khớp!'; return; }
-  if(getUser(email)){ err.textContent='⚠️ Email đã tồn tại!'; return; }
-  sp.style.display='inline-block'; bt.innerHTML='ĐANG TẠO...'; btn.disabled=true;
+  if(!name || !email || !pass || !pass2){ err.textContent = '⚠️ Điền đầy đủ!'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = '⚠️ Email không hợp lệ!'; return; }
+  if(pass.length < 6){ err.textContent = '⚠️ Mật khẩu ≥6 ký tự!'; return; }
+  if(pass !== pass2){ err.textContent = '⚠️ Không khớp!'; return; }
+  if(getUser(email)){ err.textContent = '⚠️ Email đã tồn tại!'; return; }
+  sp.style.display = 'inline-block'; bt.innerHTML = 'ĐANG TẠO...'; btn.disabled = true;
   setTimeout(async () => {
     const ip = await fetchIP();
-    setUser(email, {email, password:pass, name, balance:0, keyExpiry:0, isAdmin:false, ip, lastLogin:now(),
-      createdAt:now(), history:[], keyHistory:[], lastApi:'', lastTool:'', lastToolAt:0});
+    setUser(email, {
+      email, password: pass, name, balance: 0, keyExpiry: 0,
+      isAdmin: false, ip, lastLogin: now(), createdAt: now(),
+      history: [], keyHistory: [], lastApi: '', lastTool: '', lastToolAt: 0
+    });
     if(CLOUD.enabled()) CLOUD.push(true);
-    sp.style.display='none'; bt.innerHTML='<i class="fa-solid fa-user-plus"></i> ĐĂNG KÝ'; btn.disabled=false;
+    sp.style.display = 'none';
+    bt.innerHTML = '<i class="fa-solid fa-user-plus"></i> ĐĂNG KÝ';
+    btn.disabled = false;
     err.style.color = '#10b981'; err.textContent = '✅ Đăng ký thành công!';
     ['regName','regEmail','regPass','regPass2'].forEach(id => document.getElementById(id).value = '');
-    setTimeout(()=>{ switchTab('login'); document.getElementById('loginEmail').value = email; err.style.color='#ef4444'; err.textContent=''; }, 900);
+    setTimeout(() => {
+      switchTab('login');
+      document.getElementById('loginEmail').value = email;
+      err.style.color = '#ef4444'; err.textContent = '';
+    }, 900);
   }, 400);
 }
+
+/* VÀO APP NGAY - KHÔNG CHẶN KEY */
 function enterApp(){
   const u = currentUser();
   if(!u){ doLogout(); return; }
   document.getElementById('login-screen').classList.add('hide');
-  const isVIP = isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now());
-  if(!isVIP){ document.getElementById('key-screen').classList.add('show'); return; }
-  document.getElementById('key-screen').classList.remove('show');
   document.getElementById('app').classList.add('show');
 
   // Force admin float
@@ -86,11 +111,11 @@ function enterApp(){
   if(typeof startClock === 'function') startClock();
   if(typeof initMusic === 'function') initMusic();
 }
+
 function doLogout(){
   clearSession();
   document.getElementById('login-screen').classList.remove('hide');
   document.getElementById('app').classList.remove('show');
-  document.getElementById('key-screen').classList.remove('show');
   document.getElementById('game-screen').classList.remove('show');
   document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
   document.getElementById('loginEmail').value = '';
@@ -103,39 +128,47 @@ function doLogout(){
   if(typeof stopMusic === 'function') stopMusic();
   switchTab('login');
 }
+
+/* MỞ MODAL NHẬP KEY */
+function openKeyModal(){
+  const u = currentUser(); if(!u) return;
+  document.getElementById('keyInput').value = '';
+  document.getElementById('keyErr').textContent = '';
+  document.getElementById('keyModal').classList.add('show');
+  setTimeout(()=>document.getElementById('keyInput').focus(), 200);
+}
+
+/* KÍCH HOẠT KEY */
 function activateKey(){
   const u = currentUser(); if(!u) return;
   const code = document.getElementById('keyInput').value.trim().toUpperCase();
-  const err = document.getElementById('keyErr'); err.textContent = '';
+  const err = document.getElementById('keyErr');
+  err.textContent = ''; err.style.color = '#ef4444';
   if(!code){ err.textContent = '⚠️ Nhập key!'; return; }
   const k = findKey(code);
   if(!k){ err.textContent = '❌ Key không tồn tại!'; return; }
   if(k.used){ err.textContent = '❌ Key đã sử dụng!'; return; }
   const base = (u.keyExpiry && u.keyExpiry > now()) ? u.keyExpiry : now();
   u.keyExpiry = base + k.days * 24 * 3600 * 1000;
-  u.keyHistory.push({code, days:k.days, at:now(), via:'manual'});
+  if(!Array.isArray(u.keyHistory)) u.keyHistory = [];
+  u.keyHistory.push({code, days: k.days, at: now(), via: 'manual'});
   setUser(u.email, u);
   markKeyUsed(code, u.email);
   if(CLOUD.enabled()) CLOUD.push(true);
   document.getElementById('keyInput').value = '';
-  err.style.color = '#10b981'; err.textContent = '✅ Kích hoạt! +' + k.days + ' ngày';
-  setTimeout(() => enterApp(), 700);
+  err.style.color = '#10b981';
+  err.textContent = '✅ Kích hoạt thành công! +' + k.days + ' ngày';
+  setTimeout(() => {
+    closeModal('keyModal');
+    renderAll();
+  }, 900);
 }
-function openVipFromKey(){
-  const u = currentUser(); if(!u) return;
-  document.getElementById('key-screen').classList.remove('show');
-  document.getElementById('app').classList.add('show');
-  if(typeof renderAll === 'function') renderAll();
-  if(typeof showPage === 'function') showPage('vip');
-  if(typeof startClock === 'function') startClock();
-  if(typeof initMusic === 'function') initMusic();
-}
-function openDepositFromKey(){
-  const u = currentUser(); if(!u) return;
-  document.getElementById('key-screen').classList.remove('show');
-  document.getElementById('app').classList.add('show');
-  if(typeof renderAll === 'function') renderAll();
-  if(typeof showPage === 'function') showPage('deposit');
-  if(typeof startClock === 'function') startClock();
-  if(typeof initMusic === 'function') initMusic();
-}
+
+/* ĐIỀU HƯỚNG TỪ MODAL KEY */
+function openVipFromKey(){ closeModal('keyModal'); showPage('vip'); }
+function openDepositFromKey(){ closeModal('keyModal'); showPage('deposit'); }
+
+/* Keyboard */
+document.getElementById('loginPass').addEventListener('keypress', e => { if(e.key === 'Enter') doLogin(); });
+document.getElementById('regPass2').addEventListener('keypress', e => { if(e.key === 'Enter') doRegister(); });
+document.getElementById('keyInput').addEventListener('keypress', e => { if(e.key === 'Enter') activateKey(); });
