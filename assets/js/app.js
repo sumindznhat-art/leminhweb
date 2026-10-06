@@ -5,8 +5,7 @@
 /* ===== MUSIC ===== */
 let _musicPlaying=false;
 function initMusic(){
-  const cfg=loadConfig();
-  const a=document.getElementById('bgMusic');
+  const cfg=loadConfig(); const a=document.getElementById('bgMusic');
   if(!cfg.bg_music){ a.src=''; document.getElementById('musicBtn').style.display='none'; return; }
   document.getElementById('musicBtn').style.display='flex';
   a.src=cfg.bg_music; a.volume=0.5;
@@ -15,20 +14,10 @@ function initMusic(){
   if(shouldPlay) playMusic();
   updateMusicBtn();
 }
-function playMusic(){
-  const a=document.getElementById('bgMusic'); if(!a.src) return;
-  a.play().then(()=>{_musicPlaying=true;updateMusicBtn();}).catch(()=>{_musicPlaying=false;updateMusicBtn();});
-}
+function playMusic(){ const a=document.getElementById('bgMusic'); if(!a.src)return; a.play().then(()=>{_musicPlaying=true;updateMusicBtn();}).catch(()=>{_musicPlaying=false;updateMusicBtn();}); }
 function stopMusic(){ const a=document.getElementById('bgMusic'); a.pause(); _musicPlaying=false; updateMusicBtn(); }
-function toggleMusic(){
-  if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY,'0'); }
-  else{ playMusic(); localStorage.setItem(MUSIC_ON_KEY,'1'); }
-}
-function updateMusicBtn(){
-  const b=document.getElementById('musicBtn'); if(!b) return;
-  if(_musicPlaying){ b.innerHTML='<i class="fa-solid fa-volume-high"></i>'; b.classList.add('playing'); }
-  else{ b.innerHTML='<i class="fa-solid fa-volume-xmark"></i>'; b.classList.remove('playing'); }
-}
+function toggleMusic(){ if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY,'0'); } else { playMusic(); localStorage.setItem(MUSIC_ON_KEY,'1'); } }
+function updateMusicBtn(){ const b=document.getElementById('musicBtn'); if(!b)return; if(_musicPlaying){ b.innerHTML='<i class="fa-solid fa-volume-high"></i>'; b.classList.add('playing'); } else { b.innerHTML='<i class="fa-solid fa-volume-xmark"></i>'; b.classList.remove('playing'); } }
 function reloadMusic(){ const a=document.getElementById('bgMusic'); a.pause(); initMusic(); }
 
 /* ===== AVATAR ===== */
@@ -92,10 +81,7 @@ function openDrawer(){
   document.getElementById('drawerAvatar').src=localStorage.getItem(AVATAR_KEY)||DEFAULT_AVATAR;
   document.getElementById('diAdmin').style.display = u.isAdmin ? 'flex' : 'none';
 }
-function closeDrawer(){
-  document.getElementById('drawer').classList.remove('show');
-  document.getElementById('drawerMask').classList.remove('show');
-}
+function closeDrawer(){ document.getElementById('drawer').classList.remove('show'); document.getElementById('drawerMask').classList.remove('show'); }
 
 /* ===== HISTORY ===== */
 function openHistoryDeposit(){
@@ -155,13 +141,10 @@ function showPage(name){
 
 /* ===== CLOCK ===== */
 let clockStarted=false;
-function startClock(){
-  if(clockStarted) return; clockStarted=true;
-  function tick(){
-    const d=new Date(),p=n=>String(n).padStart(2,'0');
+function startClock(){ if(clockStarted) return; clockStarted=true;
+  function tick(){ const d=new Date(),p=n=>String(n).padStart(2,'0');
     document.getElementById('liveClock').textContent=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-    document.getElementById('liveDate').textContent=`${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;
-  }
+    document.getElementById('liveDate').textContent=`${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`; }
   tick(); setInterval(tick,1000);
 }
 
@@ -232,10 +215,7 @@ function renderVIPPage(){
 function buyPackage(id){
   const u=currentUser(); if(!u) return;
   const cfg=loadConfig(); const p=cfg.packages.find(x=>x.id===id); if(!p) return;
-  if(u.balance<p.price){
-    alert('❌ Số dư không đủ!\nCần: '+fmt(p.price)+'\nCó: '+fmt(u.balance)+'\n\nVui lòng NẠP TIỀN trước!');
-    showPage('deposit'); return;
-  }
+  if(u.balance<p.price){ alert('❌ Số dư không đủ!\nCần: '+fmt(p.price)+'\nCó: '+fmt(u.balance)+'\n\nVui lòng NẠP TIỀN trước!'); showPage('deposit'); return; }
   if(!confirm('Mua '+p.name+' với giá '+fmt(p.price)+'?')) return;
   u.balance-=p.price;
   const base=(u.keyExpiry&&u.keyExpiry>now())?u.keyExpiry:now();
@@ -278,11 +258,8 @@ function renderDeposit(){
       <div class="row"><span class="lbl">Chủ tài khoản</span><span class="val">${esc(b.holder||'—')}</span></div>
     </div>
     <div class="bank-qr">
-      ${b.qr
-        ?`<img src="${b.qr}" alt="QR nạp tiền"><div class="hint">📱 Quét QR bằng app ngân hàng để chuyển khoản</div>`
-        :`<div class="empty">⚠️ Admin chưa cấu hình QR<br>Vui lòng chuyển khoản thủ công theo STK trên</div>`}
-    </div>
-  `;
+      ${b.qr?`<img src="${b.qr}" alt="QR"><div class="hint">📱 Quét QR để chuyển khoản</div>`:`<div class="empty">⚠️ Admin chưa cấu hình QR<br>Chuyển khoản thủ công theo STK trên</div>`}
+    </div>`;
 }
 function openDepositModal(){ document.getElementById('depositModal').classList.add('show'); }
 function submitDeposit(){
@@ -295,7 +272,7 @@ function submitDeposit(){
   document.getElementById('depNote').value='';
   closeModal('depositModal');
   if(CLOUD.enabled()) CLOUD.push(true);
-  alert('✅ Đã gửi yêu cầu nạp '+fmt(amt)+'!\n\nChờ Admin duyệt. Sau khi duyệt tự động mua key.');
+  alert('✅ Đã gửi yêu cầu nạp '+fmt(amt)+'!\n\nChờ Admin duyệt.');
 }
 
 /* ===== PROFILE ===== */
@@ -327,23 +304,28 @@ function renderAll(){
 }
 
 /* ============================================================
-   CLOUD POLLER
+   CLOUD POLLER - kiểm tra mỗi 5s (test nhanh)
    ============================================================ */
 let _cloudPollerStarted=false;
 function startCloudPoller(){
   if(_cloudPollerStarted) return; _cloudPollerStarted=true;
+  console.log('[CLOUD] Poller started. Interval:', (window.CLOUD_CONFIG?.poll_interval||15000)+'ms');
+  if(!CLOUD.enabled()){
+    console.warn('[CLOUD] ⚠️ CHƯA BẬT. Sửa config.js: enabled=true + gist_id + token');
+  }
   setInterval(async ()=>{
     if(!CLOUD.enabled()) return;
     if(CLOUD._pushing) return;
     if(Date.now()-(CLOUD._lastPull||0)<3000) return;
 
-    const before=[localStorage.getItem(DB_KEY),localStorage.getItem(DEP_KEY),localStorage.getItem(CFG_KEY),localStorage.getItem(KEYS_KEY)].join('|');
+    const before=localStorage.getItem(CLOUD_TS_KEY)||'0';
     const ok=await CLOUD.pull(true);
     if(!ok) return;
-    const after=[localStorage.getItem(DB_KEY),localStorage.getItem(DEP_KEY),localStorage.getItem(CFG_KEY),localStorage.getItem(KEYS_KEY)].join('|');
+
+    const after=localStorage.getItem(CLOUD_TS_KEY)||'0';
     if(before===after) return;
 
-    console.log('[GIST] Data changed → refresh UI');
+    console.log('[CLOUD] 🔄 Data mới → refresh UI');
     const cu=currentUser();
     if(cu){
       renderAll();
@@ -355,9 +337,10 @@ function startCloudPoller(){
         const tab=document.querySelector('.admin-tab.active')?.dataset.atab;
         if(tab) switchAdminTab(tab);
       }
+      // Check user còn hạn không
       if(!cu.isAdmin){
         const fresh=getUser(cu.email);
-        if(fresh && (!fresh.keyExpiry || fresh.keyExpiry<=now())){
+        if(fresh&&(!fresh.keyExpiry||fresh.keyExpiry<=now())){
           if(document.getElementById('app').classList.contains('show')){
             alert('🔒 Key đã hết hạn hoặc bị admin reset!');
             closeGame();
@@ -374,15 +357,19 @@ function startCloudPoller(){
    INIT
    ============================================================ */
 window.addEventListener('load', async ()=>{
+  console.log('=== TOOL LEMINH ===');
+  console.log('[CLOUD] Enabled?', CLOUD.enabled());
+  console.log('[CLOUD] Config:', {gist_id: window.CLOUD_CONFIG?.gist_id?.slice(0,10)+'...', token: window.CLOUD_CONFIG?.token?.slice(0,10)+'...', enabled: window.CLOUD_CONFIG?.enabled});
+
   if(CLOUD.enabled()){
     try{
-      await CLOUD.pull(true);
-      console.log('[GIST] Bootstrapped');
-    }catch(e){ console.warn('[GIST] Bootstrap fail', e); }
+      const ok = await CLOUD.pull(true);
+      console.log('[CLOUD] Bootstrap pull:', ok ? 'OK' : 'no data / fail');
+    }catch(e){ console.warn('[CLOUD] Bootstrap fail', e); }
   }
 
   const cfg=loadConfig();
-  document.getElementById('loginSiteName').textContent=cfg.site_name||'TOOL BONSICOLA';
+  document.getElementById('loginSiteName').textContent=cfg.site_name||'TOOL LEMINH';
   if(cfg.login_avatar) document.getElementById('loginAvatarImg').src=cfg.login_avatar;
   const saved=localStorage.getItem(AVATAR_KEY);
   if(saved) applyAvatarEverywhere(saved);
@@ -395,7 +382,7 @@ window.addEventListener('load', async ()=>{
     const cu=currentUser(); if(!cu||cu.isAdmin) return;
     if(!cu.keyExpiry||cu.keyExpiry<=now()){
       if(document.getElementById('app').classList.contains('show')){
-        alert('🔒 Key hết hạn! Mua VIP hoặc nhập key mới.');
+        alert('🔒 Key hết hạn!');
         closeGame();
         document.getElementById('app').classList.remove('show');
         document.getElementById('key-screen').classList.add('show');
