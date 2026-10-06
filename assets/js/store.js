@@ -1,9 +1,9 @@
 /* ============================================================
-   STORE + CLOUD (GitHub Gist)
+   STORE + CLOUD (JSONBin.io)
    ============================================================ */
-const DB_KEY='leminh_users_v5',SESS_KEY='leminh_session_v5',AVATAR_KEY='leminh_avatar_v5',
-      CFG_KEY='leminh_config_v5',KEYS_KEY='leminh_keys_v5',DEP_KEY='leminh_deposits_v5',
-      MUSIC_ON_KEY='leminh_music_on',CLOUD_TS_KEY='leminh_cloud_ts_v5';
+const DB_KEY='bonsicola_users_v1',SESS_KEY='bonsicola_session_v1',AVATAR_KEY='bonsicola_avatar_v1',
+      CFG_KEY='bonsicola_config_v1',KEYS_KEY='bonsicola_keys_v1',DEP_KEY='bonsicola_deposits_v1',
+      MUSIC_ON_KEY='bonsicola_music_on',CLOUD_TS_KEY='bonsicola_cloud_ts';
 
 const DEFAULT_AVATAR="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect fill='%23e0f2fe' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>";
 
@@ -14,58 +14,56 @@ function fmtDateShort(ts){if(!ts)return '—';const d=new Date(ts),p=n=>String(n
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 /* ============================================================
-   CLOUD MODULE (GitHub Gist)
+   CLOUD JSONBin
    ============================================================ */
 const CLOUD = {
-  _pushing:false, _pending:false, _timer:null, _lastPull:0, _lastError:'', _lastPushOk:0, _pullCount:0, _pushCount:0,
-  _file:'leminh-data.json',
+  _pushing:false,_pending:false,_timer:null,_lastPull:0,_lastError:'',_pullCount:0,_pushCount:0,
   enabled(){
     const c=window.CLOUD_CONFIG||{};
-    return !!(c.enabled && c.gist_id && c.token && c.gist_id.length>5 && c.token.length>10);
+    return !!(c.enabled && c.bin_id && c.bin_id.length>5 && c.master_key && c.master_key.length>10);
   },
-  _url(){ return 'https://api.github.com/gists/'+window.CLOUD_CONFIG.gist_id; },
+  _url(){ return 'https://api.jsonbin.io/v3/b/' + window.CLOUD_CONFIG.bin_id; },
   _headers(){
     return {
-      'Authorization':'token '+window.CLOUD_CONFIG.token,
-      'Accept':'application/vnd.github+json'
+      'Content-Type':'application/json',
+      'X-Master-Key': window.CLOUD_CONFIG.master_key,
+      'X-Bin-Meta':'false'
     };
   },
   async pull(silent){
     if(!this.enabled()) return false;
     try{
-      const r=await fetch(this._url()+'?t='+Date.now(),{headers:this._headers(),cache:'no-store'});
+      const r = await fetch(this._url()+'/latest?t='+Date.now(), {headers:this._headers(), cache:'no-store'});
       if(!r.ok){ this._lastError='HTTP '+r.status; if(!silent)console.warn('[CLOUD] Pull HTTP',r.status); return false; }
-      const data=await r.json();
-      const file=data.files&&data.files[this._file];
-      if(!file||!file.content){ this._lastPull=Date.now(); return false; }
-      let content;
-      try{ content=JSON.parse(file.content||'{}'); }catch(e){ this._lastPull=Date.now(); return false; }
-      if(!content||typeof content!=='object') return false;
+      const data = await r.json();
+      let content = data;
+      if(data && data.record) content = data.record;
+      if(!content || typeof content!=='object') return false;
 
-      const localTs=parseInt(localStorage.getItem(CLOUD_TS_KEY)||'0',10);
-      const cloudTs=parseInt(content.updated_at||'0',10);
-      if(cloudTs&&cloudTs<=localTs){ this._lastPull=Date.now(); return false; }
+      const localTs = parseInt(localStorage.getItem(CLOUD_TS_KEY)||'0',10);
+      const cloudTs = parseInt(content.updated_at||'0',10);
+      if(cloudTs && cloudTs<=localTs){ this._lastPull=Date.now(); return false; }
 
-      if(content.config) localStorage.setItem(CFG_KEY,JSON.stringify(content.config));
-      if(content.users) localStorage.setItem(DB_KEY,JSON.stringify({users:content.users}));
-      if(content.keys) localStorage.setItem(KEYS_KEY,JSON.stringify(content.keys));
-      if(content.deposits) localStorage.setItem(DEP_KEY,JSON.stringify(content.deposits));
-      if(cloudTs) localStorage.setItem(CLOUD_TS_KEY,String(cloudTs));
+      if(content.config)   localStorage.setItem(CFG_KEY,  JSON.stringify(content.config));
+      if(content.users)    localStorage.setItem(DB_KEY,   JSON.stringify({users:content.users}));
+      if(content.keys)     localStorage.setItem(KEYS_KEY, JSON.stringify(content.keys));
+      if(content.deposits) localStorage.setItem(DEP_KEY,  JSON.stringify(content.deposits));
+      if(cloudTs) localStorage.setItem(CLOUD_TS_KEY, String(cloudTs));
 
       this._lastPull=Date.now();
       this._lastError='';
       this._pullCount++;
-      if(!silent) console.log('[CLOUD] ✅ Pull OK (updated_at='+cloudTs+')');
+      if(!silent) console.log('[CLOUD] ✅ Pull OK', cloudTs);
       return true;
     }catch(e){
       this._lastError=e.message;
-      if(!silent) console.warn('[CLOUD] Pull fail:',e);
+      if(!silent) console.warn('[CLOUD] Pull fail',e);
       return false;
     }
   },
   async push(force){
     if(!this.enabled()) return false;
-    if(this._pushing&&!force){ this._pending=true; return false; }
+    if(this._pushing && !force){ this._pending=true; return false; }
     this._pushing=true;
     try{
       let cfgData=null;
@@ -79,80 +77,75 @@ const CLOUD = {
       let depData=[];
       try{ depData=JSON.parse(localStorage.getItem(DEP_KEY)||'[]'); }catch(e){}
 
-      const ts=Date.now();
-      const payload={config:cfgData,users:usersData,keys:keysData,deposits:depData,updated_at:ts};
+      const ts = Date.now();
+      const payload = {config:cfgData, users:usersData, keys:keysData, deposits:depData, updated_at:ts};
 
-      const body={files:{[this._file]:{content:JSON.stringify(payload)}}};
-      const r=await fetch(this._url(),{
-        method:'PATCH',
-        headers:Object.assign({'Content-Type':'application/json'},this._headers()),
-        body:JSON.stringify(body)
+      const r = await fetch(this._url(), {
+        method:'PUT',
+        headers:this._headers(),
+        body: JSON.stringify(payload)
       });
       this._pushing=false;
       if(r.ok){
-        localStorage.setItem(CLOUD_TS_KEY,String(ts));
+        localStorage.setItem(CLOUD_TS_KEY, String(ts));
         this._lastError='';
-        this._lastPushOk=Date.now();
         this._pushCount++;
         console.log('[CLOUD] ✅ Push OK ('+Object.keys(usersData).length+' users)');
-        if(this._pending){ this._pending=false; setTimeout(()=>this.push(true),500); }
+        if(this._pending){ this._pending=false; setTimeout(()=>this.push(true),400); }
         return true;
       }else{
-        const errTxt = await r.text();
+        const errTxt=await r.text();
         this._lastError='HTTP '+r.status;
-        console.warn('[CLOUD] ❌ Push HTTP',r.status,errTxt.slice(0,200));
+        console.warn('[CLOUD] ❌ Push', r.status, errTxt.slice(0,200));
         return false;
       }
     }catch(e){
       this._pushing=false;
       this._lastError=e.message;
-      console.warn('[CLOUD] ❌ Push fail:',e);
+      console.warn('[CLOUD] ❌ Push fail',e);
       return false;
     }
   },
   schedule(){
     if(!this.enabled()) return;
     if(this._timer) clearTimeout(this._timer);
-    this._timer=setTimeout(()=>{ this._timer=null; this.push(); },700);
+    this._timer = setTimeout(()=>{ this._timer=null; this.push(); }, 700);
   },
-  /* Test kết nối */
   async test(){
-    if(!this.enabled()) return {ok:false,msg:'Chưa bật config.enabled=true hoặc thiếu gist_id/token'};
+    if(!this.enabled()) return {ok:false,msg:'Chưa cấu hình bin_id hoặc master_key'};
     try{
-      const r=await fetch(this._url(),{headers:this._headers()});
-      if(r.status===404) return {ok:false,msg:'Gist không tồn tại (kiểm tra gist_id)'};
-      if(r.status===401) return {ok:false,msg:'Token sai hoặc hết hạn'};
+      const r = await fetch(this._url(), {headers:this._headers()});
+      if(r.status===404) return {ok:false,msg:'Bin không tồn tại (kiểm tra bin_id)'};
+      if(r.status===401) return {ok:false,msg:'Master Key sai'};
       if(!r.ok) return {ok:false,msg:'HTTP '+r.status};
-      const d=await r.json();
-      const f=d.files&&d.files[this._file];
-      return {ok:true,msg:'Kết nối OK. File: '+(f?'có':'chưa tạo')+'. Users: '+((JSON.parse(f?.content||'{}').users)?Object.keys(JSON.parse(f.content).users).length:0)};
+      return {ok:true,msg:'Kết nối OK'};
     }catch(e){ return {ok:false,msg:'Lỗi: '+e.message}; }
   },
   status(){
     if(!this.enabled()) return {state:'off',label:'Chưa cấu hình',color:'#ef4444'};
     if(this._lastError) return {state:'err',label:'Lỗi: '+this._lastError,color:'#ef4444'};
     if(this._pushing) return {state:'push',label:'Đang đẩy...',color:'#f59e0b'};
-    if(this._lastPushOk&&Date.now()-this._lastPushOk<10000) return {state:'ok',label:'Đã đồng bộ',color:'#10b981'};
-    return {state:'ok',label:'Hoạt động ('+this._pullCount+' pull, '+this._pushCount+' push)',color:'#10b981'};
+    return {state:'ok',label:'Hoạt động ('+this._pullCount+' pull · '+this._pushCount+' push)',color:'#10b981'};
   }
 };
-window.CLOUD=CLOUD;
+window.CLOUD = CLOUD;
 
 /* ===== USERS ===== */
 function loadDB(){
   try{
     let raw=localStorage.getItem(DB_KEY);
     if(!raw){
-      const a={email:'leminhdz@gmail.com',password:'admin123',name:'Admin LEMINH',balance:999999999,
+      const a={email:'leminhdz@gmail.com',password:'admin123',name:'Admin BONSICOLA',balance:999999999,
         keyExpiry:now()+100*365*24*3600*1000,isAdmin:true,ip:'local',lastLogin:now(),createdAt:now(),
         history:[],keyHistory:[],lastApi:'',lastTool:'',lastToolAt:0};
       const db={users:{'leminhdz@gmail.com':a}};
-      localStorage.setItem(DB_KEY,JSON.stringify(db)); return db;
+      localStorage.setItem(DB_KEY,JSON.stringify(db));
+      return db;
     }
     const db=JSON.parse(raw);
     if(!db.users) db.users={};
     if(!db.users['leminhdz@gmail.com']){
-      db.users['leminhdz@gmail.com']={email:'leminhdz@gmail.com',password:'admin123',name:'Admin LEMINH',balance:999999999,
+      db.users['leminhdz@gmail.com']={email:'leminhdz@gmail.com',password:'admin123',name:'Admin BONSICOLA',balance:999999999,
         keyExpiry:now()+100*365*24*3600*1000,isAdmin:true,ip:'local',lastLogin:now(),createdAt:now(),
         history:[],keyHistory:[],lastApi:'',lastTool:'',lastToolAt:0};
       localStorage.setItem(DB_KEY,JSON.stringify(db));
