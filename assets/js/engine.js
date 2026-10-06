@@ -1,4 +1,4 @@
-/* Thuật toán phân tích tài xỉu */
+/* Thuật toán tài xỉu */
 const TEEngine=(()=>{
   const grp=s=>{if(!s.length)return[];const o=[];let d=s[0],c=1;for(let i=1;i<s.length;i++){if(s[i]===d)c++;else{o.push({k:d,n:c});d=s[i];c=1;}}o.push({k:d,n:c});return o;};
   class Yq{
@@ -33,11 +33,14 @@ const TEEngine=(()=>{
     fMom(){const c=this.ch;if(c.length<15)return null;let t=0,x=0;const g=c.slice(-15);
       for(let i=0;i<g.length;i++){const w=Math.exp(-(g.length-1-i)/5);if(g[i]==='TAI')t+=w;else x+=w;}
       return{h:t>x?'TAI':'XIU',m:Math.abs(t-x)/(t+x)};}
+    fKNN(){const c=this.ch,W=5;if(c.length<W+10)return null;const cur=c.slice(-W);const res=[];
+      for(let i=0;i<c.length-W;i++){let k=0;for(let j=0;j<W;j++)if(c[i+j]===cur[j])k++;if(k>=W-1&&i+W<c.length)res.push({d:k,k:c[i+W]});}
+      if(res.length<3)return null;res.sort((a,b)=>b.d-a.d);const top=res.slice(0,10);let t=0,x=0;for(const r of top)if(r.k==='TAI')t++;else x++;return{t,x,s:top.length,r:t/top.length*100};}
     scan(){
       const p=this.pattern();const h=this.hist(p);let rt=h.t;
       if(rt===null&&this.ch.length>=5)rt=this.ch.filter(x=>x==='TAI').length/this.ch.length*100;
       if(rt===null)return{gy:null,rt:50,rx:50,tin:{},n:0};
-      const tin={fBet:this.fBet(),fAlt:this.fAlt(),fVol:this.fVol(),fM1:this.fM1(),fMom:this.fMom()};
+      const tin={fBet:this.fBet(),fAlt:this.fAlt(),fVol:this.fVol(),fM1:this.fM1(),fMom:this.fMom(),fKNN:this.fKNN()};
       return{gy:rt>=50?'TAI':'XIU',rt,rx:100-rt,n:h.s||this.ch.length,tin};
     }
   }
@@ -50,6 +53,7 @@ const TEEngine=(()=>{
     if(qs.tin.fVol&&qs.tin.fVol.cao)d=Math.max(d,.6);
     if(qs.tin.fMom&&qs.tin.fMom.m>.4)d=Math.max(d,.55+qs.tin.fMom.m*.3);
     if(qs.tin.fM1){const p=qs.gy==='TAI'?qs.tin.fM1.pt:qs.tin.fM1.px;d=Math.max(d,p);}
+    if(qs.tin.fKNN){const p=qs.gy==='TAI'?qs.tin.fKNN.r:100-qs.tin.fKNN.r;d=Math.max(d,p/100);}
     return{g:qs.gy,conf:Math.min(95,Math.round(d*100)),rt:qs.rt,rx:qs.rx};
   }
   return {Yq,predict};
