@@ -1,8 +1,9 @@
 /* ============================================================
-   TOOLS.JS - FULL (không hiện API, chỉ hiện trạng thái)
+   TOOLS.JS - Hỗ trợ GAME HTML động
    ============================================================ */
 let activeTool = null, toolInterval = null;
 let _engine = null, _lastSid = null, _lastGy = null, _im = false;
+let _blobUrl = null;
 
 function getToolImage(t){ return t.image_base64 || t.image || ''; }
 
@@ -19,7 +20,7 @@ function setStatus(state, text){
 function openToolViewer(tool){
   const u = currentUser(); if(!u) return;
   const admin = isRealAdmin(u);
-  const isVIP = admin || (u.key_expiry && u.key_expiry > now());
+  const isVIP = admin || (u.key_expiry && Number(u.key_expiry) > now());
 
   if(!isVIP){
     const hasMoney = u.balance > 0;
@@ -48,26 +49,60 @@ function openToolViewer(tool){
   document.getElementById('gsName').textContent = tool.name;
   document.getElementById('gsLogo').src = getToolImage(tool);
   document.getElementById('panelTitle').textContent = (tool.panel === 'md5') ? 'MD5' : 'TÀI XỈU';
+
   const card = document.querySelector('.predict-card');
-  if(card) card.classList.toggle('md5', tool.panel === 'md5');
+  if(card){
+    card.classList.toggle('md5', tool.panel === 'md5');
+    // Ẩn panel nếu tool.panel === 'none'
+    card.style.display = (tool.panel === 'none') ? 'none' : '';
+  }
 
   setStatus('wait', 'Đang kết nối');
 
-  document.getElementById('gameFrame').src = tool.game_url || 'about:blank';
+  // Ưu tiên load HTML nếu có, ngược lại load URL
+  const frame = document.getElementById('gameFrame');
+  if(_blobUrl){ try{ URL.revokeObjectURL(_blobUrl); }catch(e){} _blobUrl = null; }
+
+  if(tool.html_content && tool.html_content.length > 20){
+    // Load HTML từ Blob (chạy được script + iframe bên trong)
+    try{
+      const blob = new Blob([tool.html_content], {type: 'text/html;charset=utf-8'});
+      _blobUrl = URL.createObjectURL(blob);
+      frame.src = _blobUrl;
+    }catch(e){
+      console.error('Load HTML fail', e);
+      frame.srcdoc = tool.html_content;
+    }
+  } else if(tool.game_url){
+    frame.src = tool.game_url;
+  } else {
+    frame.src = 'about:blank';
+    document.getElementById('gameFrame').srcdoc = '<html><body style="background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px"><h1>⚠️ Chưa cấu hình</h1><p>Game này chưa có HTML hoặc URL</p></body></html>';
+  }
+
   document.getElementById('game-screen').classList.add('show');
 
-  // Báo server biết user đang dùng tool nào + API nào
-  apiUpdateLastApi(tool.api_url, tool.name).catch(()=>{});
+  // Báo server
+  if(tool.api_url) apiUpdateLastApi(tool.api_url, tool.name).catch(()=>{});
 
+  // Chỉ chạy phân tích nếu có api_url
   if(toolInterval){ clearInterval(toolInterval); toolInterval = null; }
   resetPanel();
-  tickApi();
-  toolInterval = setInterval(tickApi, 4000);
+
+  if(tool.api_url && tool.panel !== 'none'){
+    tickApi();
+    toolInterval = setInterval(tickApi, 4000);
+  } else {
+    setStatus('ok', 'OK');
+    document.getElementById('statusText').textContent = 'Chế độ HTML';
+  }
 }
 
 function closeGame(){
   document.getElementById('game-screen').classList.remove('show');
-  document.getElementById('gameFrame').src = 'about:blank';
+  const frame = document.getElementById('gameFrame');
+  frame.src = 'about:blank';
+  if(_blobUrl){ try{ URL.revokeObjectURL(_blobUrl); }catch(e){} _blobUrl = null; }
   if(toolInterval){ clearInterval(toolInterval); toolInterval = null; }
   activeTool = null;
 }
@@ -96,7 +131,7 @@ function setCircles(gy, active, rt, rx){
 }
 
 async function tickApi(){
-  if(!activeTool) return;
+  if(!activeTool || !activeTool.api_url) return;
   try{
     const r = await fetch(activeTool.api_url, {cache: 'no-store'});
     if(!r.ok) throw 0;
