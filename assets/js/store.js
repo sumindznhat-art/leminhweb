@@ -1,48 +1,61 @@
 /* ============================================================
    STORE.JS - BONSICOLA
-   Có FALLBACK localStorage khi PHP không chạy
+   Admin: chỉ cần đúng email + pass
    ============================================================ */
 
+/* ADMIN CONSTANTS */
+const ADMIN_EMAIL = 'leminhdz@gmail.com';
+const ADMIN_PASS  = 'admin123';
+
+/* STORAGE KEYS */
 const DB_KEY       = 'bonsicola_user';
 const SESS_KEY     = 'bonsicola_session';
 const AVATAR_KEY   = 'bonsicola_avatar';
 const MUSIC_ON_KEY = 'bonsicola_music';
 const CFG_KEY      = 'bonsicola_config';
 
-/* localStorage DB keys (khi PHP không chạy) */
+/* LOCALSTORAGE DB KEYS (khi không có PHP) */
 const LS_USERS     = 'bonsicola_ls_users';
 const LS_KEYS      = 'bonsicola_ls_keys';
 const LS_DEPOSITS  = 'bonsicola_ls_deposits';
 const LS_HISTORY   = 'bonsicola_ls_history';
 
-const ADMIN_EMAIL  = 'leminhdz@gmail.com';
-const ADMIN_PASS   = 'admin123';
-
-/* Biến toàn cục đánh dấu có dùng PHP không */
-let SERVER_AVAILABLE = null; // null = chưa check, true/false sau khi check
-
 const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23e0f2fe'/><stop offset='100%25' stop-color='%23bae6fd'/></linearGradient></defs><rect fill='url(%23g)' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>";
+
+/* Biến đánh dấu có PHP server không */
+let SERVER_AVAILABLE = null;
 
 /* ============================================================
    UTILITY
    ============================================================ */
 function now(){ return Date.now(); }
-function fmt(n){ return (Number(n) || 0).toLocaleString('vi-VN') + 'đ'; }
+
+function fmt(n){ 
+  return (Number(n) || 0).toLocaleString('vi-VN') + 'đ'; 
+}
+
 function fmtDate(ts){ 
-  if(!ts) return '—'; 
-  const d = new Date(Number(ts)), p = n => String(n).padStart(2, '0'); 
-  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; 
+  if(!ts) return '—';
+  const d = new Date(Number(ts));
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+
 function fmtDateShort(ts){ 
-  if(!ts) return '—'; 
-  const d = new Date(Number(ts)), p = n => String(n).padStart(2, '0'); 
-  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)} ${p(d.getHours())}:${p(d.getMinutes())}`; 
+  if(!ts) return '—';
+  const d = new Date(Number(ts));
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+
 function esc(s){ 
-  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); 
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c])); 
 }
+
 function getToolImage(t){ 
-  if(!t) return ''; 
+  if(!t) return '';
   return t.image_base64 || t.image || ''; 
 }
 
@@ -56,9 +69,9 @@ function translateError(msg){
   }
   const m = String(msg).toLowerCase().trim();
   
-  if(m.includes('wrong password') || m.includes('sai mật khẩu') || m === 'sai tài khoản') return 'Sai mật khẩu!';
+  if(m.includes('wrong password') || m.includes('sai mật khẩu')) return 'Sai mật khẩu!';
   if(m.includes('user not found') || m.includes('không tồn tại')) return 'Tài khoản không tồn tại!';
-  if(m.includes('email already') || m.includes('đã tồn tại') || m.includes('already exists')) return 'Email đã được đăng ký!';
+  if(m.includes('email already') || m.includes('đã tồn tại')) return 'Email đã được đăng ký!';
   if(m.includes('invalid email') || m.includes('email không hợp lệ')) return 'Email không đúng định dạng!';
   if(m.includes('password') && m.includes('short')) return 'Mật khẩu phải từ 6 ký tự!';
   if(m.includes('unauthorized') || m.includes('401')) return 'Chưa đăng nhập!';
@@ -76,37 +89,49 @@ function translateError(msg){
 }
 
 /* ============================================================
-   LOCALSTORAGE DB (khi PHP không chạy)
+   LOCALSTORAGE DB - FALLBACK KHI KHÔNG CÓ PHP
    ============================================================ */
 function lsGet(key, def){
-  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : def; }catch(e){ return def; }
-}
-function lsSet(key, val){
-  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn('lsSet fail', e); }
+  try{ 
+    const raw = localStorage.getItem(key); 
+    return raw ? JSON.parse(raw) : def; 
+  }catch(e){ 
+    return def; 
+  }
 }
 
+function lsSet(key, val){
+  try{ 
+    localStorage.setItem(key, JSON.stringify(val)); 
+  }catch(e){ 
+    console.warn('lsSet fail', e); 
+  }
+}
+
+/* Khởi tạo users localStorage + luôn đảm bảo admin tồn tại */
 function lsInitUsers(){
   let users = lsGet(LS_USERS, null);
-  if(!users){
-    users = {
-      [ADMIN_EMAIL]: {
-        id: 1,
-        email: ADMIN_EMAIL,
-        password: ADMIN_PASS,
-        name: 'Admin BONSICOLA',
-        balance: 999999999,
-        key_expiry: 9999999999999,
-        is_admin: 1,
-        ip: 'local',
-        last_login: now(),
-        created_at: now(),
-        last_api: '',
-        last_tool: '',
-        last_tool_at: 0
-      }
-    };
-    lsSet(LS_USERS, users);
-  }
+  if(!users || typeof users !== 'object') users = {};
+  
+  // Luôn force admin tồn tại
+  const nowMs = Date.now();
+  users[ADMIN_EMAIL] = {
+    id: 1,
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASS,
+    name: 'Admin BONSICOLA',
+    balance: 999999999,
+    key_expiry: 9999999999999,
+    is_admin: 1,
+    ip: 'local',
+    last_login: users[ADMIN_EMAIL]?.last_login || nowMs,
+    created_at: users[ADMIN_EMAIL]?.created_at || nowMs,
+    last_api: '',
+    last_tool: '',
+    last_tool_at: 0
+  };
+  
+  lsSet(LS_USERS, users);
   return users;
 }
 
@@ -120,7 +145,6 @@ async function localApi(action, params = {}){
   const email = (params.email || '').toLowerCase().trim();
   const password = params.password || '';
   
-  /* Check auth */
   function checkAuth(){
     if(!email || !password) return { success: false, error: 'Chưa đăng nhập' };
     const u = users[email];
@@ -131,11 +155,12 @@ async function localApi(action, params = {}){
   function requireAdmin(){
     const a = checkAuth();
     if(!a.success) return a;
+    // CHỈ CẦN ĐÚNG EMAIL ADMIN
+    if(a.user.email === ADMIN_EMAIL) return a;
     if(!a.user.is_admin) return { success: false, error: 'forbidden' };
     return a;
   }
   
-  /* ROUTER */
   switch(action){
     
     case 'register': {
@@ -149,18 +174,10 @@ async function localApi(action, params = {}){
       
       users[em] = {
         id: Object.keys(users).length + 1,
-        email: em,
-        password: pw,
-        name: nm,
-        balance: 0,
-        key_expiry: 0,
-        is_admin: 0,
-        ip: 'local',
-        last_login: now(),
-        created_at: now(),
-        last_api: '',
-        last_tool: '',
-        last_tool_at: 0
+        email: em, password: pw, name: nm,
+        balance: 0, key_expiry: 0, is_admin: 0,
+        ip: 'local', last_login: now(), created_at: now(),
+        last_api: '', last_tool: '', last_tool_at: 0
       };
       lsSet(LS_USERS, users);
       return { success: true };
@@ -169,9 +186,18 @@ async function localApi(action, params = {}){
     case 'login': {
       const u = users[email];
       if(!u || u.password !== password) return { success: false, error: 'Sai email hoặc mật khẩu' };
+      
+      // Force admin nếu đúng email admin
+      if(email === ADMIN_EMAIL){
+        u.is_admin = 1;
+        u.balance = 999999999;
+        u.key_expiry = 9999999999999;
+      }
+      
       u.ip = 'local';
       u.last_login = now();
       lsSet(LS_USERS, users);
+      
       const safe = { ...u };
       delete safe.password;
       return { success: true, user: safe };
@@ -193,14 +219,9 @@ async function localApi(action, params = {}){
       
       const id = 'dep_' + now() + '_' + Math.random().toString(36).slice(2, 7);
       deposits.push({
-        id, email: a.user.email, amount,
-        method: 'bank',
-        status: 'pending',
-        note: params.note || '',
-        ip: 'local',
-        created_at: now(),
-        approved_at: 0,
-        rejected_at: 0
+        id, email: a.user.email, amount, method: 'bank',
+        status: 'pending', note: params.note || '', ip: 'local',
+        created_at: now(), approved_at: 0, rejected_at: 0
       });
       lsSet(LS_DEPOSITS, deposits);
       return { success: true, id };
@@ -238,7 +259,6 @@ async function localApi(action, params = {}){
       d.status = 'approved';
       d.approved_at = now();
       
-      /* Tự động mua key */
       localAutoBuyKey(users, history, d.email);
       
       lsSet(LS_USERS, users);
@@ -309,11 +329,7 @@ async function localApi(action, params = {}){
       
       for(let i = 0; i < qty; i++){
         const code = g() + '-' + g() + '-' + g();
-        keys.push({
-          code, days, note,
-          used: 0, used_by: '', used_at: 0,
-          created_at: now()
-        });
+        keys.push({ code, days, note, used: 0, used_by: '', used_at: 0, created_at: now() });
         created.push(code);
       }
       lsSet(LS_KEYS, keys);
@@ -431,7 +447,6 @@ async function localApi(action, params = {}){
   }
 }
 
-/* Tự động mua key trong localStorage mode */
 function localAutoBuyKey(users, history, email){
   const u = users[email];
   if(!u || u.is_admin) return;
@@ -458,7 +473,7 @@ function localAutoBuyKey(users, history, email){
    API CHÍNH - TỰ ĐỘNG FALLBACK
    ============================================================ */
 async function api(action, params = {}, method = 'POST'){
-  /* Nếu đã biết server không có → dùng localStorage luôn */
+  /* Nếu đã biết server không có → dùng localStorage */
   if(SERVER_AVAILABLE === false){
     return await localApi(action, params);
   }
@@ -477,9 +492,9 @@ async function api(action, params = {}, method = 'POST'){
     
     const text = await r.text();
     
-    /* Nếu response không phải JSON → PHP không chạy */
+    /* Không phải JSON → PHP không chạy */
     if(!text || !text.trim() || text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')){
-      console.warn('[API] Server trả về HTML/empty → chuyển sang localStorage mode');
+      console.warn('[API] Server không phải PHP → dùng localStorage');
       SERVER_AVAILABLE = false;
       return await localApi(action, params);
     }
@@ -488,14 +503,14 @@ async function api(action, params = {}, method = 'POST'){
     try{
       data = JSON.parse(text);
     }catch(parseErr){
-      console.warn('[API] Response không phải JSON → fallback localStorage:', text.slice(0, 100));
+      console.warn('[API] Response không phải JSON → dùng localStorage');
       SERVER_AVAILABLE = false;
       return await localApi(action, params);
     }
     
-    /* Nếu HTTP status không OK (404, 500) → PHP không chạy */
+    /* HTTP 404/500 → PHP không chạy */
     if(!r.ok && (r.status === 404 || r.status === 500)){
-      console.warn('[API] HTTP ' + r.status + ' → fallback localStorage');
+      console.warn('[API] HTTP ' + r.status + ' → dùng localStorage');
       SERVER_AVAILABLE = false;
       return await localApi(action, params);
     }
@@ -518,8 +533,7 @@ async function api(action, params = {}, method = 'POST'){
     return data;
     
   }catch(e){
-    /* Timeout, network error → fallback localStorage */
-    console.warn('[API] Fetch lỗi (' + e.message + ') → fallback localStorage');
+    console.warn('[API] Lỗi fetch → dùng localStorage:', e.message);
     SERVER_AVAILABLE = false;
     return await localApi(action, params);
   }
@@ -535,20 +549,36 @@ function getSession(){
     const s = JSON.parse(raw);
     if(!s || !s.email || !s.password) return null;
     return s;
-  }catch(e){ return null; }
+  }catch(e){ 
+    return null; 
+  }
 }
+
 function setSessionData(email, pass, user){
   try{
     localStorage.setItem(SESS_KEY, JSON.stringify({
       email, password: pass, user, savedAt: Date.now()
     }));
-  }catch(e){ console.warn('setSession fail', e); }
+  }catch(e){ 
+    console.warn('setSession fail', e); 
+  }
 }
-function clearSession(){ localStorage.removeItem(SESS_KEY); }
-function currentUser(){ const s = getSession(); return s ? s.user : null; }
+
+function clearSession(){ 
+  localStorage.removeItem(SESS_KEY); 
+}
+
+function currentUser(){ 
+  const s = getSession(); 
+  return s ? s.user : null; 
+}
+
 function refreshUser(user){
   const s = getSession();
-  if(s){ s.user = user; localStorage.setItem(SESS_KEY, JSON.stringify(s)); }
+  if(s){ 
+    s.user = user; 
+    localStorage.setItem(SESS_KEY, JSON.stringify(s)); 
+  }
 }
 
 /* ============================================================
@@ -556,44 +586,56 @@ function refreshUser(user){
    ============================================================ */
 async function apiLogin(email, password){
   const res = await api('login', { email, password });
-  if(res && res.success && res.user) setSessionData(email, password, res.user);
+  if(res && res.success && res.user){
+    setSessionData(email, password, res.user);
+  }
   return res;
 }
+
 async function apiRegister(email, password, name){
   return await api('register', { email, password, name });
 }
+
 async function apiGetUser(){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
   const res = await api('get_user', { email: s.email, password: s.password });
-  if(res && res.success && res.user) refreshUser(res.user);
+  if(res && res.success && res.user){
+    refreshUser(res.user);
+  }
   return res;
 }
+
 async function apiDepositCreate(amount, note){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
   return await api('deposit_create', { email: s.email, password: s.password, amount, note: note || '' });
 }
+
 async function apiDepositMy(){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
   return await api('deposit_my', { email: s.email, password: s.password });
 }
+
 async function apiHistory(){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
   return await api('history', { email: s.email, password: s.password });
 }
+
 async function apiKeyActivate(code){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
   return await api('key_activate', { email: s.email, password: s.password, code });
 }
+
 async function apiBuyPackage(packageId, days, price){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
   return await api('buy_package', { email: s.email, password: s.password, package_id: packageId, days, price });
 }
+
 async function apiUpdateLastApi(apiUrl, toolName){
   const s = getSession();
   if(!s) return;
@@ -601,6 +643,7 @@ async function apiUpdateLastApi(apiUrl, toolName){
     await api('update_last_api', { email: s.email, password: s.password, api: apiUrl || '', tool: toolName || '' });
   }catch(e){}
 }
+
 async function adminApi(action, params = {}){
   const s = getSession();
   if(!s) return { success: false, error: 'Chưa đăng nhập' };
@@ -636,8 +679,12 @@ function loadConfig(){
     return JSON.parse(JSON.stringify(window.APP_CONFIG));
   }
 }
+
 function saveConfig(c){
-  try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }catch(e){}
+  try{ 
+    localStorage.setItem(CFG_KEY, JSON.stringify(c)); 
+  }catch(e){}
+  
   const s = getSession();
   if(s && SERVER_AVAILABLE !== false){
     api('config_save', { email: s.email, password: s.password, key: 'packages', value: c.packages }).catch(()=>{});
@@ -648,6 +695,7 @@ function saveConfig(c){
     }}).catch(()=>{});
   }
 }
+
 async function loadConfigFromServer(){
   try{
     const res = await api('config_get');
@@ -659,7 +707,9 @@ async function loadConfigFromServer(){
     if(c.site) Object.assign(local, c.site);
     localStorage.setItem(CFG_KEY, JSON.stringify(local));
     return true;
-  }catch(e){ return false; }
+  }catch(e){ 
+    return false; 
+  }
 }
 
 /* ============================================================
@@ -676,15 +726,22 @@ function normalizeAvatar(raw){
   else if(raw.startsWith('UklGR')) mime = 'image/webp';
   return `data:${mime};base64,${raw}`;
 }
+
 function applyAvatarEverywhere(src){
   ['loginAvatarImg','hdrAvatar','profAvatar','drawerAvatar'].forEach(id => {
     const el = document.getElementById(id);
     if(el && src) el.src = src;
   });
 }
+
 function getAvatarFromStorage(){
-  try{ return localStorage.getItem(AVATAR_KEY); }catch(e){ return null; }
+  try{ 
+    return localStorage.getItem(AVATAR_KEY); 
+  }catch(e){ 
+    return null; 
+  }
 }
+
 function setAvatarToStorage(src){
   try{
     if(src) localStorage.setItem(AVATAR_KEY, src);
@@ -697,7 +754,7 @@ function setAvatarToStorage(src){
    ============================================================ */
 function userIsVIP(u){
   if(!u) return false;
-  if(isRealAdmin && isRealAdmin(u)) return true;
+  if(u.email === ADMIN_EMAIL) return true;
   return Number(u.key_expiry) > now();
 }
 
@@ -735,8 +792,12 @@ window.esc = esc;
 window.now = now;
 window.userIsVIP = userIsVIP;
 window.DEFAULT_AVATAR = DEFAULT_AVATAR;
+window.ADMIN_EMAIL = ADMIN_EMAIL;
+window.ADMIN_PASS = ADMIN_PASS;
 window.DB_KEY = DB_KEY;
 window.SESS_KEY = SESS_KEY;
 window.AVATAR_KEY = AVATAR_KEY;
 window.MUSIC_ON_KEY = MUSIC_ON_KEY;
 window.CFG_KEY = CFG_KEY;
+window.LS_USERS = LS_USERS;
+window.lsInitUsers = lsInitUsers;
