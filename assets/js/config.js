@@ -1,21 +1,15 @@
 /* ============================================================
-   CLOUD - JSONBin.io
-   ============================================================
-   HƯỚNG DẪN:
-   1. Vào https://jsonbin.io → Sign up (bằng Google)
-   2. Bins → Create Bin → Content: {} → Create
-   3. Copy Bin ID từ URL
-   4. Dán vào bin_id bên dưới
+   CLOUD - JSONBin.io (Tự động tạo Bin)
    ============================================================ */
 window.CLOUD_CONFIG = {
-  bin_id: "2b4ced53dc9e6a0425fb2c094eb8a9ac.js",  // ← DÁN BIN ID VÀO ĐÂY (VD: "68f2a1b3c4d5")
   master_key: "$2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm",
-  enabled: true,         // ← Đã bật, chỉ cần điền bin_id
-  poll_interval: 5000    // 5s test, đổi thành 15000 nếu muốn tiết kiệm
+  bin_id: "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",           // ← Để trống, admin bấm "TẠO BIN" tự động
+  enabled: true,
+  poll_interval: 5000
 };
 
 window.APP_CONFIG = {
-  site_name: "BONSICOLA",
+  site_name: "TOOL BONSICOLA",
   marquee: "⚡ Hệ Thống AI Phân Tích Dữ Liệu Thế Hệ Mới ✦ 🔐 Nạp tiền → mua key → mở tool",
   notice_title: "📢 Thông báo",
   notice: "Chào mừng đến với BONSICOLA!\n• Nạp tiền → Admin duyệt → Tự động mua key\n• Có key mới mở được tool\n• Liên hệ: leminhdz@gmail.com",
