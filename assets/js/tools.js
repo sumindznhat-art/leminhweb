@@ -1,5 +1,5 @@
 /* ============================================================
-   TOOLS.JS - Tool Viewer + Panel AI
+   TOOLS.JS - Tool Viewer (chặn ở nút MỞ TOOL)
    ============================================================ */
 let activeTool = null, toolInterval = null, apiInfoVisible = false;
 let _engine = null, _lastSid = null, _lastGy = null, _im = false;
@@ -11,10 +11,25 @@ function openToolViewer(tool){
   const admin = isRealAdmin(u);
   const isVIP = admin || (u.keyExpiry && u.keyExpiry > now());
 
-  if(tool.vip && !isVIP){
-    alert('🔒 Tool yêu cầu VIP!\n\nSố dư: ' + fmt(u.balance) + '\nNạp tiền để mua key sử dụng.');
-    showPage('vip'); return;
+  /* CHẶN NGAY TẠI ĐÂY - KHÔNG HIỆN MÀN HÌNH NHẬP KEY */
+  if(!isVIP){
+    const hasMoney = u.balance > 0;
+    const msg = '🔒 CẦN KÍCH HOẠT KEY ĐỂ MỞ TOOL\n\n' +
+                '💰 Số dư: ' + fmt(u.balance) + '\n' +
+                '📅 Key: ' + (u.keyExpiry ? 'ĐÃ HẾT HẠN ' + fmtDate(u.keyExpiry) : 'Chưa kích hoạt') + '\n\n' +
+                'Bạn muốn làm gì?\n' +
+                '• OK → ' + (hasMoney ? 'Mua gói VIP ngay' : 'Nạp tiền vào ví') + '\n' +
+                '• Cancel → Nhập key có sẵn';
+    const goBuy = confirm(msg);
+    if(goBuy){
+      if(hasMoney) showPage('vip');
+      else showPage('deposit');
+    } else {
+      openKeyModal();
+    }
+    return;
   }
+
   if(tool.maintenance){ alert('🚧 Tool đang bảo trì!'); return; }
 
   activeTool = tool;
@@ -33,26 +48,18 @@ function openToolViewer(tool){
   const card = document.querySelector('.predict-card');
   if(card) card.classList.toggle('md5', tool.panel === 'md5');
 
-  // ẨN NÚT API - chỉ admin
   const apiBtn = document.getElementById('gsApiBtn');
   if(apiBtn){
-    if(admin){
-      apiBtn.style.display = 'flex';
-      apiBtn.classList.add('show');
-    } else {
-      apiBtn.style.display = 'none';
-      apiBtn.classList.remove('show');
-    }
+    if(admin){ apiBtn.style.display = 'flex'; apiBtn.classList.add('show'); }
+    else { apiBtn.style.display = 'none'; apiBtn.classList.remove('show'); }
   }
   apiInfoVisible = false;
   const apiInfo = document.getElementById('gsApiInfo');
   if(apiInfo) apiInfo.classList.remove('show');
 
-  // Load game
   document.getElementById('gameFrame').src = tool.game_url || 'about:blank';
   document.getElementById('game-screen').classList.add('show');
 
-  // Lưu user
   u.lastApi = tool.api_url;
   u.lastTool = tool.name;
   u.lastToolAt = now();
@@ -91,15 +98,19 @@ function resetPanel(){
 function setCircles(gy, active, rt, rx){
   const tc = document.getElementById('taiCircle'), xc = document.getElementById('xiuCircle');
   tc.className = 'tx-circle tai'; xc.className = 'tx-circle xiu';
-  if(rt != null && rx != null){ tc.textContent = Math.round(rt) + '%'; xc.textContent = Math.round(rx) + '%'; }
-  else { tc.textContent = '--%'; xc.textContent = '--%'; }
+  if(rt != null && rx != null){
+    tc.textContent = Math.round(rt) + '%';
+    xc.textContent = Math.round(rx) + '%';
+  } else {
+    tc.textContent = '--%'; xc.textContent = '--%';
+  }
   if(gy){ const el = gy === 'TAI' ? tc : xc; el.classList.add(active ? 'active' : 'resting'); }
 }
 
 async function tickApi(){
   if(!activeTool) return;
   try{
-    const r = await fetch(activeTool.api_url, {cache:'no-store'});
+    const r = await fetch(activeTool.api_url, {cache: 'no-store'});
     if(!r.ok) throw 0;
     const data = await r.json();
     let list = data.list || data.data || data.sessions || data.result || data.history || data.items || data.soicau;
@@ -147,7 +158,6 @@ function analyze(asc, nid){
   }
 }
 
-/* Drag panel */
 (function(){
   const el = document.getElementById('dragPanel'); if(!el) return;
   let drag = false, sx, sy, ix, iy;
@@ -159,7 +169,11 @@ function analyze(asc, nid){
   el.addEventListener('pointermove', e => {
     if(!drag) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
-    requestAnimationFrame(() => { el.style.left = (ix+dx)+'px'; el.style.top = (iy+dy)+'px'; el.style.right = 'auto'; });
+    requestAnimationFrame(() => {
+      el.style.left = (ix + dx) + 'px';
+      el.style.top = (iy + dy) + 'px';
+      el.style.right = 'auto';
+    });
   });
   const stop = () => drag = false;
   el.addEventListener('pointerup', stop);
