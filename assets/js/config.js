@@ -1,11 +1,23 @@
 /* ============================================================
-   CLOUD SYNC - GitHub Gist
+   CLOUD - GitHub Gist
+   ============================================================
+   HƯỚNG DẪN:
+   1. Vào https://gist.github.com tạo gist mới
+      - Filename: leminh-data.json
+      - Content: {}  (2 ký tự)
+      - Create secret gist
+      - Copy Gist ID từ URL
+   2. Vào https://github.com/settings/tokens
+      - Generate new token (classic)
+      - Tick ô "gist" → Generate
+      - Copy token
+   3. Dán vào 2 dòng dưới + đổi enabled thành true
    ============================================================ */
 window.CLOUD_CONFIG = {
-  gist_id: "",         // $2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm
-  token: "",           // ahvin20205c4417a0cc327f8390adcac761e6452c.js
-  enabled: true,      // ← Đổi thành true sau khi dán
-  poll_interval: 15000
+  gist_id: "",            // ← $2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm
+  token: "",              // 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
+  enabled: true,         // ← ĐỔI THÀNH true sau khi dán
+  poll_interval: 5000     // 5 giây (test nhanh). Sau đổi thành 15000
 };
 
 window.APP_CONFIG = {
@@ -16,7 +28,7 @@ window.APP_CONFIG = {
   login_avatar: "",
   bg_music: "",
   bg_music_enabled: 1,
-  bank: { name:"MB BANK", acc:"0372834763", holder:"LE HOANG MINH", qr:"" },
+  bank: { name:"MB BANK", acc:"0123456789", holder:"LE HOANG MINH", qr:"" },
   packages: [
     {id:'p1',name:'VIP 1 Ngày',days:1,price:45000,old:55000,disc:'-18%',sub:'Gói đặc quyền'},
     {id:'p3',name:'VIP 3 Ngày',days:3,price:120000,old:150000,disc:'-20%',sub:'Gói đặc quyền'},
