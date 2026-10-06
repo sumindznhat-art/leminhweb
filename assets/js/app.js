@@ -1,15 +1,56 @@
 /* ============================================================
-   APP.JS - BONSICOLA (Full + Bảo mật Admin)
+   APP.JS - BONSICOLA (Chạy được cả Vercel + PHP)
+   Tự động tạo admin khi chạy lần đầu → vào ngay không cần server
    ============================================================ */
 
 /* ============================================================
-   CHECK ADMIN - CHỈ KHI ĐĂNG NHẬP ĐÚNG PASS + CÓ CỜ TỪ SERVER
+   TỰ ĐỘNG TẠO ADMIN KHI CHẠY LẦN ĐẦU (Vercel mode)
+   ============================================================ */
+(function autoInitAdmin(){
+  try{
+    const LS_USERS = 'bonsicola_ls_users';
+    const ADMIN_EMAIL = 'leminhdz@gmail.com';
+    const ADMIN_PASS = 'admin123';
+    
+    let users = null;
+    try{ users = JSON.parse(localStorage.getItem(LS_USERS) || 'null'); }catch(e){}
+    
+    // Nếu chưa có users hoặc chưa có admin → tạo mới
+    if(!users || !users[ADMIN_EMAIL]){
+      users = users || {};
+      users[ADMIN_EMAIL] = {
+        id: 1,
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASS,
+        name: 'Admin BONSICOLA',
+        balance: 999999999,
+        key_expiry: 9999999999999,
+        is_admin: 1,
+        ip: 'local',
+        last_login: Date.now(),
+        created_at: Date.now(),
+        last_api: '',
+        last_tool: '',
+        last_tool_at: 0
+      };
+      localStorage.setItem(LS_USERS, JSON.stringify(users));
+      console.log('[AUTO] ✅ Đã tạo admin mặc định:', ADMIN_EMAIL);
+    } else {
+      console.log('[AUTO] ✅ Admin đã tồn tại:', ADMIN_EMAIL);
+    }
+  }catch(e){
+    console.warn('[AUTO] Không tạo được admin:', e);
+  }
+})();
+
+/* ============================================================
+   CHECK ADMIN
    ============================================================ */
 function isRealAdmin(u){
   if(!u) return false;
-  // CHỈ admin khi server trả về is_admin = 1
-  // Server chỉ set cờ này khi login ĐÚNG email + password admin
-  return u.is_admin === 1 || u.is_admin === true;
+  // Admin khi có cờ is_admin từ server HOẶC email admin + đã login đúng
+  if(u.is_admin === 1 || u.is_admin === true) return true;
+  return false;
 }
 window.isRealAdmin = isRealAdmin;
 
@@ -22,7 +63,6 @@ function initMusic(){
   const cfg = loadConfig();
   const a = document.getElementById('bgMusic');
   if(!a) return;
-  
   const btn = document.getElementById('musicBtn');
   
   if(!cfg.bg_music){
@@ -30,14 +70,12 @@ function initMusic(){
     if(btn) btn.style.display = 'none';
     return;
   }
-  
   if(btn) btn.style.display = 'flex';
   a.src = cfg.bg_music;
   a.volume = 0.5;
   
   const saved = localStorage.getItem(MUSIC_ON_KEY);
   const shouldPlay = saved === null ? (cfg.bg_music_enabled == 1) : (saved === '1');
-  
   if(shouldPlay) playMusic();
   updateMusicBtn();
 }
@@ -45,15 +83,14 @@ function initMusic(){
 function playMusic(){
   const a = document.getElementById('bgMusic');
   if(!a || !a.src) return;
-  a.play()
-    .then(() => { _musicPlaying = true; updateMusicBtn(); })
-    .catch(() => { _musicPlaying = false; updateMusicBtn(); });
+  a.play().then(() => { _musicPlaying = true; updateMusicBtn(); })
+         .catch(() => { _musicPlaying = false; updateMusicBtn(); });
 }
 
 function stopMusic(){
   const a = document.getElementById('bgMusic');
   if(a) a.pause();
-  _musicPlaying = false; 
+  _musicPlaying = false;
   updateMusicBtn();
 }
 
@@ -197,7 +234,7 @@ function resetAvatar(){
 }
 
 /* ============================================================
-   DRAWER (Menu 3 gạch)
+   DRAWER
    ============================================================ */
 function openDrawer(){
   const u = currentUser();
@@ -211,7 +248,7 @@ function openDrawer(){
   const avEl = document.getElementById('drawerAvatar');
   if(avEl) avEl.src = getAvatarFromStorage() || DEFAULT_AVATAR;
   
-  // ⚠️ BẢO MẬT: Chỉ admin THẬT mới thấy nút Quản trị
+  // Admin → hiện nút quản trị
   const diAdmin = document.getElementById('diAdmin');
   if(diAdmin){
     if(isRealAdmin(u)){
@@ -221,12 +258,12 @@ function openDrawer(){
     }
   }
   
-  // Đếm số yêu cầu pending (chỉ admin)
+  // Đếm pending cho admin
   if(isRealAdmin(u)){
     const pb = document.getElementById('pendBadge');
     if(pb){
       adminApi('deposit_pending').then(res => {
-        if(res.success && res.deposits){
+        if(res && res.success && res.deposits){
           pb.textContent = res.deposits.length;
           pb.style.display = res.deposits.length > 0 ? 'inline-block' : 'none';
         }
@@ -236,8 +273,10 @@ function openDrawer(){
 }
 
 function closeDrawer(){
-  document.getElementById('drawer').classList.remove('show');
-  document.getElementById('drawerMask').classList.remove('show');
+  const d = document.getElementById('drawer');
+  const m = document.getElementById('drawerMask');
+  if(d) d.classList.remove('show');
+  if(m) m.classList.remove('show');
 }
 
 /* ============================================================
@@ -335,7 +374,7 @@ async function openHistoryKey(){
 }
 
 /* ============================================================
-   PAGES NAVIGATION
+   PAGES
    ============================================================ */
 function showPage(name){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -391,7 +430,7 @@ function startClock(){
 }
 
 /* ============================================================
-   TOOLS LIST
+   TOOLS
    ============================================================ */
 let activeCat = 'all';
 
@@ -401,7 +440,6 @@ function renderTools(){
   const isVIP = u && userIsVIP(u);
   const tools = cfg.tools || [];
   
-  // Category tabs
   const cats = ['all', ...new Set(tools.map(t => t.cat))];
   const names = { all: 'Tất cả', taixiu: 'Tài Xỉu', sicbo: 'Sicbo', baccarat: 'Baccarat', khac: 'Khác' };
   const ct = document.getElementById('catTabs');
@@ -417,7 +455,6 @@ function renderTools(){
     });
   }
   
-  // Tool list
   const box = document.getElementById('toolList');
   if(!box) return;
   box.innerHTML = '';
@@ -476,7 +513,8 @@ function renderVIPPage(){
   const exp = document.getElementById('vipExpiry');
   
   if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
-  if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' : (u.key_expiry && Number(u.key_expiry) > now() ? fmtDate(u.key_expiry) : 'Chưa kích hoạt');
+  if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' 
+    : (u.key_expiry && Number(u.key_expiry) > now() ? fmtDate(u.key_expiry) : 'Chưa kích hoạt');
 
   const cfg = loadConfig();
   const box = document.getElementById('pkgList');
@@ -522,7 +560,7 @@ async function buyPackage(id, days, price, name){
   if(!u) return;
   
   if(Number(u.balance) < price){
-    alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance) + '\n\nVui lòng NẠP TIỀN trước!');
+    alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance));
     showPage('deposit');
     return;
   }
@@ -657,7 +695,6 @@ function renderAll(){
   set('hdrBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   set('curBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   
-  // Avatar
   const av = getAvatarFromStorage() || cfg.login_avatar || DEFAULT_AVATAR;
   applyAvatarEverywhere(av);
   
@@ -669,7 +706,7 @@ function renderAll(){
   const isVIP = userIsVIP(u);
   set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
   
-  // ⚠️ Admin float: CHỈ hiện khi có cờ is_admin từ server
+  // Hiện nút admin float
   const af = document.getElementById('adminFloat');
   if(af){
     if(isRealAdmin(u)){
@@ -693,11 +730,12 @@ function closeModal(id){
 window.closeModal = closeModal;
 
 /* ============================================================
-   INIT - KHỞI TẠO KHI TẢI TRANG
+   INIT
    ============================================================ */
 window.addEventListener('load', async () => {
   console.log('%c=== BONSICOLA TOOL ===', 'background:linear-gradient(135deg,#3b5bfd,#5b7cff);color:#fff;padding:6px 14px;border-radius:6px;font-weight:bold');
   console.log('[API] URL:', window.API_URL || '/api/index.php');
+  console.log('[MODE]', SERVER_AVAILABLE === false ? 'LOCAL' : 'AUTO');
 
   // Load config
   const cfg = loadConfig();
@@ -712,12 +750,10 @@ window.addEventListener('load', async () => {
   const saved = getAvatarFromStorage();
   if(saved) applyAvatarEverywhere(saved);
   
-  // Cố gắng load config từ server
+  // Thử load config từ server (không bắt buộc)
   try{
     await loadConfigFromServer();
-  }catch(e){ 
-    console.warn('[CONFIG] Load từ server thất bại', e); 
-  }
+  }catch(e){}
   
   // Auto login nếu có session
   const u = currentUser();
@@ -726,15 +762,17 @@ window.addEventListener('load', async () => {
     if(res && res.success){
       enterApp();
     } else {
-      // Session hết hạn hoặc user bị xoá
+      // Session cũ không hợp lệ → xoá để đăng nhập lại
       clearSession();
       console.log('[AUTH] Session không hợp lệ, cần đăng nhập lại');
     }
   }
+  
+  console.log('[READY] Sẵn sàng đăng nhập');
 });
 
 /* ============================================================
-   EXPOSE GLOBAL
+   EXPOSE
    ============================================================ */
 window.renderAll = renderAll;
 window.renderTools = renderTools;
