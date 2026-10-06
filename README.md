@@ -1,18 +1,20 @@
-#  TOOL LEMINH 
+#  TOOL BONSICOLA 
 
-## Setup Cloud (3 phút)
-1. Tạo Gist trống: https://gist.github.com (filename: `leminh-data.json`, content: `{}`)
-2. Copy Gist ID từ URL
-3. Tạo Token: https://github.com/settings/tokens (tick scope `gist`)
-4. Dán vào `assets/js/config.js`
+## Setup Cloud (2 phút)
+1. Vào https://jsonbin.io → Sign up
+2. Create Bin với content: `{}`
+3. Copy Bin ID từ URL
+4. Dán vào `assets/js/config.js` chỗ `bin_id: "..."`
 
-## Deploy
-Repo public → Upload → Settings/Pages/main/root → Save
-
-## Admin
+## Admin mặc định
 - Email: `leminhdz@gmail.com`
 - Pass: `admin123`
 
-## Test
-- Máy A (admin) sửa QR → máy B đợi 15s → thấy ngay
-- Máy B nạp tiền → máy A vào Admin/Duyệt tiền → bấm DUYỆT → máy B nhận key tự động
+## Gói VIP
+- 1 Ngày: 10,000đ
+- 3 Ngày: 30,000đ
+- 1 Tuần: 80,000đ
+- 1 Tháng: 200,000đ
+
+## Deploy
+Repo public → Upload → Settings/Pages/main/root → Save
