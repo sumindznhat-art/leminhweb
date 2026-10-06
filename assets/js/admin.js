@@ -1,635 +1,719 @@
 /* ============================================================
-   ADMIN.JS - FULL + THÊM GAME BẰNG HTML
+   APP.JS - BONSICOLA (Fix admin triệt để)
    ============================================================ */
 
-function openAdmin(){
-  const u = currentUser();
-  if(!isRealAdmin(u)){ alert('❌ Không có quyền Admin!'); return; }
-  document.getElementById('adminPanel').classList.add('show');
-  switchAdminTab('users');
-}
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+const ADMIN_EMAIL = 'leminhdz@gmail.com';
+const ADMIN_PASS  = 'admin123';
+const LS_USERS    = 'bonsicola_ls_users';
 
-function switchAdminTab(tab){
-  document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.atab === tab));
-  ['users','pending','apis','config','keys','games'].forEach(k => {
-    const el = document.getElementById('admin' + k.charAt(0).toUpperCase() + k.slice(1) + 'View');
-    if(el) el.style.display = (k === tab) ? 'block' : 'none';
-  });
-  if(tab === 'users')   renderAdminUsers();
-  if(tab === 'pending') renderAdminPending();
-  if(tab === 'apis')    renderAdminApis();
-  if(tab === 'config')  renderAdminConfig();
-  if(tab === 'keys')    renderAdminKeys();
-  if(tab === 'games')   renderAdminGames();
-}
-
-/* ============ TAB USERS ============ */
-async function renderAdminUsers(){
-  const box = document.getElementById('adminUsersView');
-  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
-
-  const res = await adminApi('user_list');
-  box.innerHTML = '';
-
-  const add = document.createElement('div');
-  add.className = 'adm-section';
-  add.innerHTML = `<h4><i class="fa-solid fa-user-plus"></i> Tạo user mới</h4>
-    <input class="adm-input" id="admNewEmail" placeholder="Email...">
-    <input class="adm-input" id="admNewPass" placeholder="Mật khẩu...">
-    <input class="adm-input" id="admNewName" placeholder="Tên hiển thị...">
-    <button class="green" onclick="admCreateUser()">TẠO USER</button>`;
-  box.appendChild(add);
-
-  if(!res.success || !res.users){
-    box.innerHTML += '<div style="text-align:center;padding:20px;color:#ef4444;font-weight:700">Lỗi tải users</div>';
-    return;
+/* ============================================================
+   FORCE FIX ADMIN - CHẠY NGAY KHI LOAD SCRIPT
+   ============================================================ */
+(function forceFixAdmin(){
+  try{
+    const nowMs = Date.now();
+    
+    /* 1. Force tạo admin trong LS Users */
+    let users = {};
+    try{ users = JSON.parse(localStorage.getItem(LS_USERS) || '{}'); }catch(e){}
+    
+    const existing = users[ADMIN_EMAIL] || {};
+    users[ADMIN_EMAIL] = {
+      id: existing.id || 1,
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASS,
+      name: existing.name || 'Admin BONSICOLA',
+      balance: existing.balance || 999999999,
+      key_expiry: existing.key_expiry || 9999999999999,
+      is_admin: 1,
+      ip: existing.ip || 'local',
+      last_login: existing.last_login || nowMs,
+      created_at: existing.created_at || nowMs,
+      last_api: existing.last_api || '',
+      last_tool: existing.last_tool || '',
+      last_tool_at: existing.last_tool_at || 0
+    };
+    localStorage.setItem(LS_USERS, JSON.stringify(users));
+    console.log('[FORCE] ✅ Admin đã có is_admin=1');
+    
+    /* 2. Force session nếu email là admin */
+    const sessRaw = localStorage.getItem('bonsicola_session');
+    if(sessRaw){
+      try{
+        const s = JSON.parse(sessRaw);
+        if(s && s.user && s.user.email === ADMIN_EMAIL){
+          s.user = users[ADMIN_EMAIL];
+          s.email = ADMIN_EMAIL;
+          s.password = ADMIN_PASS;
+          localStorage.setItem('bonsicola_session', JSON.stringify(s));
+          console.log('[FORCE] ✅ Session admin đã được fix');
+        }
+      }catch(e){}
+    }
+  }catch(e){
+    console.warn('[FORCE] Lỗi:', e);
   }
+})();
 
-  res.users.forEach(u => {
-    const isExpired = !u.is_admin && (!u.key_expiry || Number(u.key_expiry) <= now());
-    const div = document.createElement('div');
-    div.className = 'adm-user';
-    const badges = [];
-    if(u.is_admin) badges.push('<span class="badge badge-admin">ADMIN</span>');
-    else if(isExpired) badges.push('<span class="badge badge-exp">HẾT HẠN</span>');
-    else badges.push('<span class="badge badge-vip">VIP</span>');
-
-    div.innerHTML = `
-      <div class="r1"><div class="email">${esc(u.email)}</div><div>${badges.join(' ')}</div></div>
-      <div class="info">
-        Tên: <b>${esc(u.name||'—')}</b><br>
-        Số dư: <b>${u.is_admin ? '∞' : fmt(u.balance)}</b><br>
-        Hạn key: <b>${u.is_admin ? '∞' : (u.key_expiry ? fmtDate(u.key_expiry) : 'Chưa có')}</b><br>
-        <b style="color:#ef4444">IP: ${esc(u.ip||'—')}</b><br>
-        Đăng nhập: <b>${u.last_login ? fmtDate(u.last_login) : '—'}</b>
-      </div>
-      <div class="acts">
-        <button class="b1" onclick="admAddBalance('${esc(u.email)}')">+Tiền</button>
-        <button class="b2" onclick="admSetKey('${esc(u.email)}')">+Key</button>
-        <button class="b3" onclick="admResetKey('${esc(u.email)}')">Reset</button>
-        <button class="b4" onclick="admToggleAdmin('${esc(u.email)}', ${u.is_admin ? 1 : 0})">${u.is_admin ? 'Gỡ Admin' : 'Cấp Admin'}</button>
-        <button class="b5" onclick="admDelete('${esc(u.email)}')">Xoá</button>
-      </div>`;
-    box.appendChild(div);
-  });
-}
-async function admCreateUser(){
-  const email = document.getElementById('admNewEmail').value.trim().toLowerCase();
-  const pass = document.getElementById('admNewPass').value;
-  const name = document.getElementById('admNewName').value.trim() || email.split('@')[0];
-  if(!email || !pass){ alert('⚠️ Nhập đủ!'); return; }
-  const res = await apiRegister(email, pass, name);
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Đã tạo: ' + email);
-  renderAdminUsers();
-}
-async function admAddBalance(email){
-  const v = prompt('Cộng/trừ tiền cho ' + email + '\n(số dương = cộng, âm = trừ)', '50000');
-  if(v === null) return;
-  const n = parseInt(v, 10);
-  if(isNaN(n)){ alert('❌ Số không hợp lệ!'); return; }
-  const listRes = await adminApi('user_list');
-  const user = listRes.users?.find(u => u.email === email);
-  if(!user){ alert('❌ Không tìm thấy user'); return; }
-  const newBalance = Math.max(0, parseInt(user.balance) + n);
-  const res = await adminApi('user_update', { email, balance: newBalance });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Số dư mới: ' + fmt(newBalance));
-  renderAdminUsers();
-}
-async function admSetKey(email){
-  const v = prompt('Cấp thêm bao nhiêu NGÀY?', '7');
-  if(v === null) return;
-  const d = parseInt(v, 10);
-  if(isNaN(d) || d <= 0){ alert('❌ Số ngày không hợp lệ!'); return; }
-  const listRes = await adminApi('user_list');
-  const user = listRes.users?.find(u => u.email === email);
-  if(!user){ alert('❌ Không tìm thấy user'); return; }
-  const base = (Number(user.key_expiry) > now()) ? Number(user.key_expiry) : now();
-  const newExpiry = base + d * 24 * 3600 * 1000;
-  const res = await adminApi('user_update', { email, key_expiry: newExpiry });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Đã cấp ' + d + ' ngày!\nHạn mới: ' + fmtDate(newExpiry));
-  renderAdminUsers();
-}
-async function admResetKey(email){
-  if(!confirm('Reset key của ' + email + '?')) return;
-  const res = await adminApi('user_update', { email, key_expiry: 0 });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Đã reset!');
-  renderAdminUsers();
-}
-async function admToggleAdmin(email, current){
-  const me = currentUser();
-  if(email === me.email){ alert('❌ Không thể tự gỡ!'); return; }
-  const newVal = current ? 0 : 1;
-  if(!confirm((newVal ? 'Cấp' : 'Gỡ') + ' quyền ADMIN cho ' + email + '?')) return;
-  const res = await adminApi('user_update', { email, is_admin: newVal });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Đã cập nhật!');
-  renderAdminUsers();
-}
-async function admDelete(email){
-  const me = currentUser();
-  if(email === me.email){ alert('❌ Không thể tự xoá!'); return; }
-  if(email === 'leminhdz@gmail.com'){ alert('❌ Không thể xoá admin tổng!'); return; }
-  if(!confirm('XOÁ: ' + email + '?')) return;
-  const res = await adminApi('user_delete', { email });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Đã xoá!');
-  renderAdminUsers();
-}
-
-/* ============ TAB DUYỆT TIỀN ============ */
-async function renderAdminPending(){
-  const box = document.getElementById('adminPendingView');
-  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
-  const res = await adminApi('deposit_pending');
-  box.innerHTML = '';
-  if(!res.success || !res.deposits || !res.deposits.length){
-    box.innerHTML = '<div class="adm-section" style="text-align:center;color:#94a3b8;font-weight:700">✨ Không có yêu cầu nào</div>';
-    return;
+/* ============================================================
+   CHECK ADMIN - CHẤP NHẬN MỌI ĐỊNH DẠNG
+   ============================================================ */
+function isRealAdmin(u){
+  if(!u) return false;
+  
+  // Cờ is_admin dạng number, string, boolean
+  if(u.is_admin === 1 || u.is_admin === '1' || u.is_admin === true) return true;
+  
+  // Fallback: nếu email là admin VÀ session có password admin đúng
+  if(u.email === ADMIN_EMAIL){
+    const s = getSession();
+    if(s && s.password === ADMIN_PASS) return true;
   }
-  res.deposits.forEach(d => {
-    const el = document.createElement('div');
-    el.className = 'pending-item';
-    el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="font-weight:800;color:#3b5bfd;font-size:12.5px;word-break:break-all">${esc(d.email)}</div>
-        <div class="amt">${fmt(d.amount)}</div>
-      </div>
-      <div style="font-size:11px;color:#64748b;font-weight:600">
-        <b style="color:#ef4444">IP: ${esc(d.ip||'—')}</b><br>
-        ${esc(d.method === 'bank' ? 'Ngân hàng' : 'Thẻ cào')} · ${fmtDate(d.created_at)}<br>
-        Ghi chú: <b>${esc(d.note||'—')}</b>
-      </div>
-      <div class="acts">
-        <button class="btn-approve" onclick="approveDeposit('${d.id}')"><i class="fa-solid fa-check"></i> DUYỆT</button>
-        <button class="btn-reject" onclick="rejectDeposit('${d.id}')"><i class="fa-solid fa-xmark"></i> TỪ CHỐI</button>
-      </div>`;
-    box.appendChild(el);
-  });
+  
+  return false;
 }
-async function approveDeposit(id){
-  const res = await adminApi('deposit_approve', { id });
-  if(!res.success){ alert('❌ ' + (res.error || 'Lỗi duyệt')); return; }
-  alert('✅ Đã duyệt! Tiền đã cộng + key tự động mua.');
-  renderAdminPending();
-}
-async function rejectDeposit(id){
-  const r = prompt('Lý do từ chối:', 'Không hợp lệ') || 'Không hợp lệ';
-  const res = await adminApi('deposit_reject', { id, reason: r });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('❌ Đã từ chối');
-  renderAdminPending();
-}
+window.isRealAdmin = isRealAdmin;
 
-/* ============ TAB API USERS ============ */
-async function renderAdminApis(){
-  const box = document.getElementById('adminApisView');
-  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
-  const res = await adminApi('user_list');
-  box.innerHTML = '';
-  const intro = document.createElement('div');
-  intro.className = 'adm-section';
-  intro.innerHTML = '<h4><i class="fa-solid fa-code"></i> User đang dùng tool nào</h4>';
-  box.appendChild(intro);
-  const users = (res.users || []).filter(u => u.last_api);
-  if(!users.length){
-    box.innerHTML += '<div class="adm-section" style="text-align:center;color:#94a3b8;font-weight:700">Chưa có user dùng tool</div>';
-    return;
-  }
-  users.forEach(u => {
-    const el = document.createElement('div');
-    el.className = 'api-user';
-    el.innerHTML = `
-      <div class="em">${esc(u.email)}</div>
-      <div style="font-size:11px;color:#64748b;font-weight:600">
-        Tool: <b style="color:#3b5bfd">${esc(u.last_tool||'—')}</b><br>
-        Lúc: <b>${u.last_tool_at ? fmtDate(u.last_tool_at) : '—'}</b><br>
-        IP: <b style="color:#ef4444">${esc(u.ip||'—')}</b>
-      </div>
-      <div class="api-line"><span style="color:#f59e0b">API:</span> ${esc(u.last_api)}</div>`;
-    box.appendChild(el);
-  });
-}
+/* ============================================================
+   DEBUG FUNCTION - Gọi từ Console
+   ============================================================ */
+window.debugAuth = function(){
+  console.log('=== DEBUG AUTH ===');
+  console.log('Session:', getSession());
+  console.log('CurrentUser:', currentUser());
+  console.log('isRealAdmin:', isRealAdmin(currentUser()));
+  console.log('LS Users:', JSON.parse(localStorage.getItem(LS_USERS) || '{}'));
+  console.log('Admin email:', ADMIN_EMAIL);
+  console.log('Admin pass:', ADMIN_PASS);
+};
+console.log('%c🔍 Debug: gõ debugAuth() trong Console', 'color:#3b5bfd;font-weight:bold;font-size:13px');
 
-/* ============ TAB CẤU HÌNH ============ */
-function renderAdminConfig(){
+/* ============================================================
+   MUSIC
+   ============================================================ */
+let _musicPlaying = false;
+
+function initMusic(){
   const cfg = loadConfig();
-  const box = document.getElementById('adminConfigView');
-  box.innerHTML = '';
-
-  const site = document.createElement('div');
-  site.className = 'adm-section';
-  site.innerHTML = `<h4><i class="fa-solid fa-gear"></i> Cấu hình chung</h4>
-    <input class="adm-input" id="cfgSiteName" value="${esc(cfg.site_name)}" placeholder="Tên site">
-    <input class="adm-input" id="cfgMarquee" value="${esc(cfg.marquee)}" placeholder="Marquee">
-    <input class="adm-input" id="cfgNoticeTitle" value="${esc(cfg.notice_title)}" placeholder="Tiêu đề TB">
-    <textarea class="adm-textarea" id="cfgNotice" placeholder="Thông báo">${esc(cfg.notice)}</textarea>
-    <button class="green" onclick="saveCfgSite()">💾 LƯU</button>`;
-  box.appendChild(site);
-
-  const bank = document.createElement('div');
-  bank.className = 'adm-section';
-  bank.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng + QR</h4>
-    <input class="adm-input" id="cfgBankName" value="${esc(cfg.bank.name)}" placeholder="Tên NH">
-    <input class="adm-input" id="cfgBankAcc" value="${esc(cfg.bank.acc)}" placeholder="Số TK">
-    <input class="adm-input" id="cfgBankHolder" value="${esc(cfg.bank.holder)}" placeholder="Chủ TK">
-    <textarea class="adm-textarea" id="cfgBankQR" placeholder="Dán Base64 QR">${esc(cfg.bank.qr||'')}</textarea>
-    <div style="text-align:center;margin:6px 0">${cfg.bank.qr ? `<img src="${cfg.bank.qr}" style="max-width:220px;border-radius:12px">` : '<span style="font-size:11px;color:#94a3b8">Chưa có QR</span>'}</div>
-    <button class="green" onclick="saveCfgBank()">💾 LƯU BANK</button>
-    <button class="red" onclick="clearCfgBankQR()">🗑 XOÁ QR</button>`;
-  box.appendChild(bank);
-
-  const music = document.createElement('div');
-  music.className = 'adm-section';
-  music.innerHTML = `<h4><i class="fa-solid fa-music"></i> Nhạc nền</h4>
-    <textarea class="adm-textarea" id="cfgMusic" placeholder="URL hoặc Base64">${esc(cfg.bg_music||'')}</textarea>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin:6px 0">
-      <input type="checkbox" id="cfgMusicEnabled" ${cfg.bg_music_enabled?'checked':''}> Bật mặc định
-    </label>
-    <button class="green" onclick="saveCfgMusic()">💾 LƯU</button>
-    <button class="orange" onclick="testMusic()">▶️ THỬ</button>
-    <button class="red" onclick="clearCfgMusic()">🗑 XOÁ</button>`;
-  box.appendChild(music);
-
-  const lg = document.createElement('div');
-  lg.className = 'adm-section';
-  lg.innerHTML = `<h4><i class="fa-solid fa-image"></i> Avatar đăng nhập</h4>
-    <textarea class="adm-textarea" id="cfgLoginAvatar" placeholder="Base64 avatar">${esc(cfg.login_avatar||'')}</textarea>
-    <div style="text-align:center;margin:6px 0">${cfg.login_avatar ? `<img src="${cfg.login_avatar}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #fff">` : ''}</div>
-    <button class="green" onclick="saveCfgLoginAvatar()">💾 LƯU</button>
-    <button class="red" onclick="clearCfgLoginAvatar()">🗑 XOÁ</button>`;
-  box.appendChild(lg);
-}
-
-function saveCfgSite(){
-  const c = loadConfig();
-  c.site_name = document.getElementById('cfgSiteName').value;
-  c.marquee = document.getElementById('cfgMarquee').value;
-  c.notice_title = document.getElementById('cfgNoticeTitle').value;
-  c.notice = document.getElementById('cfgNotice').value;
-  saveConfig(c);
-  renderAll();
-  document.getElementById('loginSiteName').textContent = c.site_name;
-  alert('✅ Đã lưu!');
-}
-function saveCfgBank(){
-  const c = loadConfig();
-  c.bank.name = document.getElementById('cfgBankName').value;
-  c.bank.acc = document.getElementById('cfgBankAcc').value;
-  c.bank.holder = document.getElementById('cfgBankHolder').value;
-  const qr = document.getElementById('cfgBankQR').value.trim();
-  c.bank.qr = qr ? (normalizeAvatar(qr) || qr) : '';
-  saveConfig(c);
-  renderAdminConfig();
-  alert('✅ Đã lưu bank!');
-}
-function clearCfgBankQR(){
-  if(!confirm('Xoá QR?')) return;
-  const c = loadConfig(); c.bank.qr = '';
-  saveConfig(c);
-  renderAdminConfig();
-}
-function saveCfgMusic(){
-  const c = loadConfig();
-  c.bg_music = document.getElementById('cfgMusic').value.trim() || '';
-  c.bg_music_enabled = document.getElementById('cfgMusicEnabled').checked ? 1 : 0;
-  saveConfig(c);
-  alert('✅ Đã lưu nhạc!');
-  if(typeof reloadMusic === 'function') reloadMusic();
-}
-function testMusic(){
-  const m = document.getElementById('cfgMusic').value.trim();
-  if(!m){ alert('⚠️ Chưa nhập nhạc!'); return; }
   const a = document.getElementById('bgMusic');
-  a.src = m; a.volume = 0.5;
-  a.play().catch(e => alert('❌ Không phát được: ' + e.message));
+  if(!a) return;
+  const btn = document.getElementById('musicBtn');
+  if(!cfg.bg_music){
+    a.src = '';
+    if(btn) btn.style.display = 'none';
+    return;
+  }
+  if(btn) btn.style.display = 'flex';
+  a.src = cfg.bg_music;
+  a.volume = 0.5;
+  const saved = localStorage.getItem(MUSIC_ON_KEY);
+  const shouldPlay = saved === null ? (cfg.bg_music_enabled == 1) : (saved === '1');
+  if(shouldPlay) playMusic();
+  updateMusicBtn();
 }
-function clearCfgMusic(){
-  if(!confirm('Xoá nhạc?')) return;
-  const c = loadConfig(); c.bg_music = '';
-  saveConfig(c);
-  renderAdminConfig();
-  if(typeof stopMusic === 'function') stopMusic();
+function playMusic(){
+  const a = document.getElementById('bgMusic');
+  if(!a || !a.src) return;
+  a.play().then(() => { _musicPlaying = true; updateMusicBtn(); })
+         .catch(() => { _musicPlaying = false; updateMusicBtn(); });
 }
-function saveCfgLoginAvatar(){
-  const c = loadConfig();
-  const v = document.getElementById('cfgLoginAvatar').value.trim();
-  c.login_avatar = v ? (normalizeAvatar(v) || v) : '';
-  saveConfig(c);
-  if(c.login_avatar) document.getElementById('loginAvatarImg').src = c.login_avatar;
-  renderAdminConfig();
-  alert('✅ Đã lưu avatar login!');
+function stopMusic(){
+  const a = document.getElementById('bgMusic');
+  if(a) a.pause();
+  _musicPlaying = false;
+  updateMusicBtn();
 }
-function clearCfgLoginAvatar(){
-  if(!confirm('Xoá avatar login?')) return;
-  const c = loadConfig(); c.login_avatar = '';
-  saveConfig(c);
-  document.getElementById('loginAvatarImg').src = DEFAULT_AVATAR;
-  renderAdminConfig();
+function toggleMusic(){
+  if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY, '0'); }
+  else { playMusic(); localStorage.setItem(MUSIC_ON_KEY, '1'); }
+}
+function updateMusicBtn(){
+  const b = document.getElementById('musicBtn');
+  if(!b) return;
+  if(_musicPlaying){ 
+    b.innerHTML = '<i class="fa-solid fa-volume-high"></i>'; 
+    b.classList.add('playing'); 
+  } else { 
+    b.innerHTML = '<i class="fa-solid fa-volume-xmark"></i>'; 
+    b.classList.remove('playing'); 
+  }
+}
+function reloadMusic(){ 
+  const a = document.getElementById('bgMusic'); 
+  if(a) a.pause(); 
+  initMusic(); 
 }
 
 /* ============================================================
-   TAB GAMES - QUẢN LÝ GAME (THÊM GAME BẰNG HTML)
+   AVATAR
    ============================================================ */
-function renderAdminGames(){
+(function(){
+  const trigger = document.getElementById('avatarTrigger');
+  if(!trigger) return;
+  const HOLD_MS = 1200;
+  let timer = null, holding = false, sx = 0, sy = 0, moved = false;
+  const TOL = 12;
+  function start(x, y){
+    sx = x; sy = y; moved = false; holding = true;
+    timer = setTimeout(() => {
+      if(!holding || moved) return;
+      holding = false;
+      openAvatarModal();
+    }, HOLD_MS);
+  }
+  function cancel(){
+    holding = false;
+    if(timer){ clearTimeout(timer); timer = null; }
+  }
+  function move(x, y){
+    if(!holding) return;
+    if(Math.abs(x - sx) > TOL || Math.abs(y - sy) > TOL){ moved = true; cancel(); }
+  }
+  trigger.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
+  trigger.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+  trigger.addEventListener('mouseup', cancel);
+  trigger.addEventListener('mouseleave', cancel);
+  trigger.addEventListener('touchstart', e => { const t = e.touches[0]; start(t.clientX, t.clientY); }, {passive: true});
+  trigger.addEventListener('touchmove', e => { const t = e.touches[0]; move(t.clientX, t.clientY); }, {passive: true});
+  trigger.addEventListener('touchend', cancel);
+  trigger.addEventListener('touchcancel', cancel);
+  trigger.addEventListener('contextmenu', e => e.preventDefault());
+})();
+
+function openAvatarModal(){
+  const m = document.getElementById('avatarModal');
+  const inp = document.getElementById('avBase64Input');
+  const pv = document.getElementById('avPreview');
+  if(!m) return;
+  let s = getAvatarFromStorage();
+  document.getElementById('avStatus').textContent = '';
+  document.getElementById('avModalTitle').textContent = '🎀 Đổi Avatar';
+  if(s){ pv.innerHTML = `<img src="${s}">`; inp.value = ''; }
+  else { pv.innerHTML = '🎀'; inp.value = ''; }
+  m.classList.add('show');
+}
+function closeAvatarModal(){ 
+  const m = document.getElementById('avatarModal');
+  if(m) m.classList.remove('show'); 
+}
+function saveAvatar(){
+  const inp = document.getElementById('avBase64Input');
+  const st = document.getElementById('avStatus');
+  const pv = document.getElementById('avPreview');
+  const val = inp.value.trim();
+  if(!val || val.length < 50){ 
+    st.style.color = '#ef4444'; 
+    st.textContent = '⚠️ Base64 không hợp lệ!'; 
+    return; 
+  }
+  const src = normalizeAvatar(val);
+  const img = new Image();
+  img.onload = () => {
+    setAvatarToStorage(src);
+    applyAvatarEverywhere(src);
+    pv.innerHTML = `<img src="${src}">`;
+    st.style.color = '#10b981'; 
+    st.textContent = '✅ Đã lưu avatar!';
+    setTimeout(closeAvatarModal, 900);
+  };
+  img.onerror = () => { 
+    st.style.color = '#ef4444'; 
+    st.textContent = '❌ Ảnh không load được!'; 
+  };
+  img.src = src;
+}
+function resetAvatar(){
+  setAvatarToStorage(null);
+  applyAvatarEverywhere(DEFAULT_AVATAR);
+  document.getElementById('avPreview').innerHTML = '🎀';
+  document.getElementById('avBase64Input').value = '';
+  const st = document.getElementById('avStatus');
+  st.style.color = '#0ea5e9'; 
+  st.textContent = '↩️ Đã reset mặc định';
+  setTimeout(() => st.textContent = '', 1400);
+}
+
+/* ============================================================
+   DRAWER
+   ============================================================ */
+function openDrawer(){
+  const u = currentUser();
+  if(!u) return;
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('drawerMask').classList.add('show');
+  document.getElementById('drawerName').textContent = u.name || u.email.split('@')[0];
+  document.getElementById('drawerEmail').textContent = u.email;
+  const avEl = document.getElementById('drawerAvatar');
+  if(avEl) avEl.src = getAvatarFromStorage() || DEFAULT_AVATAR;
+  
+  const isAdm = isRealAdmin(u);
+  console.log('[DRAWER] isRealAdmin =', isAdm, '| user:', u.email, '| is_admin:', u.is_admin);
+  
+  const diAdmin = document.getElementById('diAdmin');
+  if(diAdmin){
+    if(isAdm){
+      diAdmin.style.cssText = 'display:flex !important;pointer-events:auto !important;visibility:visible !important;opacity:1 !important;';
+    } else {
+      diAdmin.style.display = 'none';
+    }
+  }
+  
+  if(isAdm){
+    const pb = document.getElementById('pendBadge');
+    if(pb){
+      adminApi('deposit_pending').then(res => {
+        if(res && res.success && res.deposits){
+          pb.textContent = res.deposits.length;
+          pb.style.display = res.deposits.length > 0 ? 'inline-block' : 'none';
+        }
+      }).catch(() => {});
+    }
+  }
+}
+function closeDrawer(){
+  const d = document.getElementById('drawer');
+  const m = document.getElementById('drawerMask');
+  if(d) d.classList.remove('show');
+  if(m) m.classList.remove('show');
+}
+
+/* ============================================================
+   HISTORY
+   ============================================================ */
+async function openHistoryDeposit(){
+  closeDrawer();
+  const u = currentUser();
+  if(!u) return;
+  document.getElementById('histTitle').textContent = '💰 Lịch sử nạp tiền';
+  const box = document.getElementById('histContent');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+  document.getElementById('historyModal').classList.add('show');
+  const res = await apiHistory();
+  box.innerHTML = '';
+  if(!res || !res.success){
+    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi tải') + '</div>';
+    return;
+  }
+  const list = (res.history || []).filter(h => 
+    h.type === 'deposit' || h.type === 'admin' || h.type === 'buy' || h.type === 'auto-buy'
+  );
+  if(!list.length){
+    box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có giao dịch</div>';
+    return;
+  }
+  list.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'info-row'; el.style.margin = '0 0 8px';
+    const amount = Number(h.amount) || 0;
+    const color = amount > 0 ? '#10b981' : '#ef4444';
+    const label = h.type === 'deposit' ? 'Nạp tiền'
+                : h.type === 'admin'   ? 'Admin điều chỉnh'
+                : h.type === 'auto-buy'? 'Tự động mua VIP' : 'Mua VIP';
+    el.innerHTML = `<div><div class="lbl">${label}</div>
+      <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+      <div style="text-align:right"><div class="val" style="color:${color}">${amount > 0 ? '+' : ''}${fmt(amount)}</div>
+      <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div></div>`;
+    box.appendChild(el);
+  });
+}
+
+async function openHistoryKey(){
+  closeDrawer();
+  const u = currentUser();
+  if(!u) return;
+  document.getElementById('histTitle').textContent = '🔑 Lịch sử key';
+  const box = document.getElementById('histContent');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+  document.getElementById('historyModal').classList.add('show');
+  const res = await apiHistory();
+  box.innerHTML = '';
+  if(!res || !res.success){
+    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi tải') + '</div>';
+    return;
+  }
+  const list = (res.history || []).filter(h => h.type === 'key');
+  if(!list.length){
+    box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có key</div>';
+    return;
+  }
+  list.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'info-row'; el.style.margin = '0 0 8px';
+    el.innerHTML = `<div><div class="lbl">Kích hoạt key</div>
+      <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+      <div style="text-align:right"><div class="val" style="color:#10b981">${esc(h.note || '')}</div></div>`;
+    box.appendChild(el);
+  });
+}
+
+/* ============================================================
+   PAGES
+   ============================================================ */
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-' + name);
+  if(page) page.classList.add('active');
+  const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
+  if(nav) nav.classList.add('active');
+  const content = document.getElementById('appContent');
+  if(content) content.scrollTop = 0;
+  if(name === 'deposit') renderDeposit();
+  if(name === 'vip')     renderVIPPage();
+  if(name === 'profile') renderProfile();
+  if(name === 'tools')   renderTools();
+  if(name === 'home')    renderHome();
+}
+
+function renderHome(){
+  const u = currentUser();
+  if(!u) return;
   const cfg = loadConfig();
-  const box = document.getElementById('adminGamesView');
+  const el1 = document.getElementById('toolCount');
+  const el2 = document.getElementById('curBalance');
+  if(el1) el1.textContent = (cfg.tools || []).filter(t => t.enabled).length;
+  if(el2) el2.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
+}
+
+/* ============================================================
+   CLOCK
+   ============================================================ */
+let clockStarted = false;
+function startClock(){
+  if(clockStarted) return;
+  clockStarted = true;
+  function tick(){
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    const clock = document.getElementById('liveClock');
+    const date = document.getElementById('liveDate');
+    if(clock) clock.textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    if(date)  date.textContent  = `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* ============================================================
+   TOOLS
+   ============================================================ */
+let activeCat = 'all';
+
+function renderTools(){
+  const cfg = loadConfig();
+  const u = currentUser();
+  const isVIP = u && userIsVIP(u);
+  const tools = cfg.tools || [];
+  const cats = ['all', ...new Set(tools.map(t => t.cat))];
+  const names = { all: 'Tất cả', taixiu: 'Tài Xỉu', sicbo: 'Sicbo', baccarat: 'Baccarat', khac: 'Khác' };
+  const ct = document.getElementById('catTabs');
+  if(ct){
+    ct.innerHTML = '';
+    cats.forEach(c => {
+      const b = document.createElement('button');
+      b.className = 'cat-tab' + (c === activeCat ? ' active' : '');
+      b.textContent = names[c] || c.toUpperCase();
+      b.onclick = () => { activeCat = c; renderTools(); };
+      ct.appendChild(b);
+    });
+  }
+  const box = document.getElementById('toolList');
   if(!box) return;
   box.innerHTML = '';
-
-  /* FORM THÊM GAME MỚI */
-  const addForm = document.createElement('div');
-  addForm.className = 'adm-section';
-  addForm.style.background = '#f0fdf4';
-  addForm.style.borderColor = '#86efac';
-  addForm.style.borderStyle = 'solid';
-  addForm.innerHTML = `
-    <h4 style="color:#10b981"><i class="fa-solid fa-plus-circle"></i> THÊM GAME MỚI BẰNG HTML</h4>
-    <p style="font-size:11px;color:#166534;font-weight:600;margin-bottom:8px">
-      Điền tên + logo + dán HTML vào bên dưới → Game sẽ dùng được ngay
-    </p>
-
-    <input class="adm-input" id="newGameName" placeholder="📝 Tên game (VD: LC79 Tài Xỉu)">
-
-    <input class="adm-input" id="newGameSlug" placeholder="🔗 Slug (tự tạo nếu trống, VD: lc79-tx)">
-
-    <select class="adm-input" id="newGameCat">
-      <option value="taixiu">Danh mục: Tài Xỉu</option>
-      <option value="sicbo">Danh mục: Sicbo</option>
-      <option value="baccarat">Danh mục: Baccarat</option>
-      <option value="khac">Danh mục: Khác</option>
-    </select>
-
-    <select class="adm-input" id="newGamePanel">
-      <option value="taixiu">Panel AI: TÀI XỈU</option>
-      <option value="md5">Panel AI: MD5</option>
-      <option value="none">Không hiện panel</option>
-    </select>
-
-    <input class="adm-input" id="newGameImage" placeholder="🖼️ Logo URL (https://...)">
-
-    <textarea class="adm-textarea" id="newGameImageB64" placeholder="🖼️ Hoặc dán Base64 logo (ưu tiên hơn URL)" style="min-height:50px"></textarea>
-
-    <textarea class="adm-textarea" id="newGameHtml" placeholder="📄 Dán HTML GAME vào đây (bắt buộc)
-
-Ví dụ HTML đơn giản:
-<!DOCTYPE html>
-<html>
-<head><style>body{background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px}</style></head>
-<body>
-  <h1>🎮 Game của tôi</h1>
-  <p>Nội dung game ở đây</p>
-  <iframe src='https://lc79.bet' style='width:100%;height:80vh;border:0'></iframe>
-</body>
-</html>" style="min-height:150px;font-size:11px"></textarea>
-
-    <input class="adm-input" id="newGameApi" placeholder="🔌 API URL (tuỳ chọn, để đọc kết quả tự động)">
-
-    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:700;margin:8px 0">
-      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="newGameVip" checked> 👑 VIP</label>
-      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="newGameHot" checked> 🔥 HOT</label>
-      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="newGameNew"> ✨ NEW</label>
-    </div>
-
-    <button class="green" style="width:100%;padding:12px;font-size:13px" onclick="addGameByHtml()">
-      ➕ THÊM GAME VÀ HIỂN THỊ NGAY
-    </button>
-
-    <div id="addGameResult" style="margin-top:10px;font-size:12px;font-weight:700;color:#3b5bfd;text-align:center"></div>
-  `;
-  box.appendChild(addForm);
-
-  /* DANH SÁCH GAME HIỆN CÓ */
-  const listTitle = document.createElement('div');
-  listTitle.className = 'adm-section';
-  listTitle.innerHTML = `<h4><i class="fa-solid fa-list"></i> Danh sách game (${cfg.tools.length})</h4>
-    <p style="font-size:11px;color:#64748b;font-weight:600">Chỉnh sửa / Xoá / Bật tắt từng game</p>`;
-  box.appendChild(listTitle);
-
-  cfg.tools.forEach((t, i) => {
-    const tr = document.createElement('div');
-    tr.className = 'adm-section';
-    tr.style.background = '#fff';
-    tr.style.borderStyle = 'solid';
-
+  const list = tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
+  const tc = document.getElementById('toolCount');
+  if(tc) tc.textContent = tools.filter(t => t.enabled).length;
+  if(!list.length){
+    box.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có tool nào</div>';
+    return;
+  }
+  list.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'tool-card';
     const img = getToolImage(t);
-    const hasHtml = !!(t.html_content && t.html_content.length > 20);
-    const tag = hasHtml ? '<span style="background:#10b981;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;margin-left:6px">HTML</span>' : '';
-
-    tr.innerHTML = `
-      <h4>
-        ${img ? `<img src="${img}" style="width:30px;height:30px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:6px">` : '🎲 '}
-        ${esc(t.name)}
-        ${tag}
-        <span style="font-size:10px;color:#94a3b8;font-weight:500;margin-left:auto">${esc(t.slug)}</span>
-      </h4>
-
-      <input class="adm-input" data-f="name" data-i="${i}" value="${esc(t.name)}" placeholder="Tên game">
-
-      <select class="adm-input" data-f="panel" data-i="${i}">
-        <option value="taixiu" ${t.panel === 'taixiu' ? 'selected' : ''}>Panel TÀI XỈU</option>
-        <option value="md5" ${t.panel === 'md5' ? 'selected' : ''}>Panel MD5</option>
-        <option value="none" ${t.panel === 'none' ? 'selected' : ''}>Không panel</option>
-      </select>
-
-      <input class="adm-input" data-f="image" data-i="${i}" value="${esc(t.image || '')}" placeholder="Logo URL">
-
-      <textarea class="adm-textarea" data-f="image_base64" data-i="${i}" placeholder="Hoặc Base64 logo">${esc(t.image_base64 || '')}</textarea>
-
-      <input class="adm-input" data-f="api_url" data-i="${i}" value="${esc(t.api_url || '')}" placeholder="API URL (tuỳ chọn)">
-
-      <textarea class="adm-textarea" data-f="html_content" data-i="${i}" placeholder="HTML game" style="min-height:80px;font-size:10px">${esc(t.html_content || '')}</textarea>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;font-weight:700;margin:6px 0">
-        <label style="display:flex;align-items:center;gap:4px">
-          <input type="checkbox" data-f="vip" data-i="${i}" ${t.vip ? 'checked' : ''}> VIP
-        </label>
-        <label style="display:flex;align-items:center;gap:4px">
-          <input type="checkbox" data-f="hot" data-i="${i}" ${t.hot ? 'checked' : ''}> HOT
-        </label>
-        <label style="display:flex;align-items:center;gap:4px">
-          <input type="checkbox" data-f="is_new" data-i="${i}" ${t.is_new ? 'checked' : ''}> NEW
-        </label>
-        <label style="display:flex;align-items:center;gap:4px">
-          <input type="checkbox" data-f="maintenance" data-i="${i}" ${t.maintenance ? 'checked' : ''}> BẢO TRÌ
-        </label>
+    const tags = [];
+    if(t.hot) tags.push('<span class="tool-badge-hot">HOT</span>');
+    if(t.is_new) tags.push('<span class="tool-badge-new">NEW</span>');
+    if(t.maintenance) tags.push('<span class="tool-badge-hot" style="background:#f1f5f9;color:#64748b;border-color:#cbd5e1">BẢO TRÌ</span>');
+    card.innerHTML = `
+      <div class="tool-head">
+        <div class="tool-logo">${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='🎲'">` : '🎲'}</div>
+        <div class="tool-info">
+          <div class="tool-name-row">
+            <span class="tool-name">${esc(t.name)}</span>
+            ${tags.join('')}
+          </div>
+          <div class="tool-desc">${esc(t.game_url || 'Nhấn để mở tool')}</div>
+        </div>
       </div>
-
-      <div style="display:flex;gap:6px">
-        <button class="green" style="flex:1" onclick="saveGameAt(${i})">💾 LƯU</button>
-        <button class="red" onclick="deleteGameAt(${i})">🗑 XOÁ</button>
-      </div>
-    `;
-    box.appendChild(tr);
+      <div class="tool-footer">
+êu        <div class="vip-req ${isVIP ? 'ok' : ''}">
+          <span class="dot"></span>${isVIP ? 'Đã mở khoá' : 'Y cầu VIP'}
+        </div>
+        <button class="tool-btn ${isVIP ? 'unlocked' : ''}">
+          <i class="fa-solid ${isVIP ? 'fa-unlock' : 'fa-lock'}"></i> ${isVIP ? 'MỞ TOOL' : 'VIP'}
+        </button>
+      </div>`;
+    card.querySelector('.tool-btn').onclick = () => openToolViewer(t);
+    box.appendChild(card);
   });
 }
 
-/* THÊM GAME MỚI BẰNG HTML */
-function addGameByHtml(){
-  const result = document.getElementById('addGameResult');
-  const name = document.getElementById('newGameName').value.trim();
-  const html = document.getElementById('newGameHtml').value.trim();
-  const slugInput = document.getElementById('newGameSlug').value.trim();
-  const cat = document.getElementById('newGameCat').value;
-  const panel = document.getElementById('newGamePanel').value;
-  const image = document.getElementById('newGameImage').value.trim();
-  const imageB64Raw = document.getElementById('newGameImageB64').value.trim();
-  const api = document.getElementById('newGameApi').value.trim();
-  const vip = document.getElementById('newGameVip').checked ? 1 : 0;
-  const hot = document.getElementById('newGameHot').checked ? 1 : 0;
-  const isNew = document.getElementById('newGameNew').checked ? 1 : 0;
-
-  if(!name){
-    result.textContent = '❌ Chưa nhập tên game!';
-    result.style.color = '#ef4444';
-    return;
-  }
-  if(!html || html.length < 20){
-    result.textContent = '❌ Chưa dán HTML game (tối thiểu 20 ký tự)!';
-    result.style.color = '#ef4444';
-    return;
-  }
-
-  // Tạo slug tự động nếu trống
-  let slug = slugInput;
-  if(!slug){
-    slug = name.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') + '-' + Date.now().toString(36).slice(-4);
-  }
-
+/* ============================================================
+   VIP PAGE
+   ============================================================ */
+function renderVIPPage(){
+  const u = currentUser();
+  if(!u) return;
+  const bal = document.getElementById('vipBalance');
+  const exp = document.getElementById('vipExpiry');
+  if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
+  if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' 
+    : (u.key_expiry && Number(u.key_expiry) > now() ? fmtDate(u.key_expiry) : 'Chưa kích hoạt');
   const cfg = loadConfig();
-  // Kiểm tra slug trùng
-  if(cfg.tools.find(t => t.slug === slug)){
-    slug = slug + '-' + Date.now().toString(36).slice(-4);
-  }
-
-  const imageB64 = imageB64Raw ? (normalizeAvatar(imageB64Raw) || imageB64Raw) : '';
-
-  const newGame = {
-    name: name,
-    slug: slug,
-    cat: cat,
-    panel: panel,
-    game_url: '',
-    api_url: api || '',
-    image: image || '',
-    image_base64: imageB64,
-    html_content: html,
-    hot: hot,
-    vip: vip,
-    is_new: isNew,
-    enabled: 1,
-    maintenance: 0
-  };
-
-  cfg.tools.push(newGame);
-  saveConfig(cfg);
-
-  result.textContent = '✅ Đã thêm game: ' + name;
-  result.style.color = '#10b981';
-
-  // Xoá form
-  document.getElementById('newGameName').value = '';
-  document.getElementById('newGameSlug').value = '';
-  document.getElementById('newGameImage').value = '';
-  document.getElementById('newGameImageB64').value = '';
-  document.getElementById('newGameHtml').value = '';
-  document.getElementById('newGameApi').value = '';
-
-  // Reload danh sách + danh sách tool ngoài app
-  setTimeout(() => {
-    renderAdminGames();
-    renderTools();
-    alert('✅ Đã thêm game "' + name + '"!\n\nGame sẽ xuất hiện trong Kho Tool ngay.');
-  }, 500);
-}
-
-/* LƯU 1 GAME */
-function saveGameAt(i){
-  const cfg = loadConfig();
-  const t = cfg.tools[i]; if(!t) return;
-
-  document.querySelectorAll(`[data-i="${i}"]`).forEach(el => {
-    const f = el.dataset.f;
-    if(!f) return;
-    if(el.type === 'checkbox'){
-      t[f] = el.checked ? 1 : 0;
-    } else if(f === 'image_base64'){
-      const v = el.value.trim();
-      t[f] = v ? (normalizeAvatar(v) || v) : '';
-    } else {
-      t[f] = el.value;
-    }
-  });
-
-  saveConfig(cfg);
-  renderAdminGames();
-  renderTools();
-  alert('✅ Đã lưu game!');
-}
-
-/* XOÁ GAME */
-function deleteGameAt(i){
-  const cfg = loadConfig();
-  const t = cfg.tools[i]; if(!t) return;
-  if(!confirm('XOÁ GAME: ' + t.name + '?')) return;
-  cfg.tools.splice(i, 1);
-  saveConfig(cfg);
-  renderAdminGames();
-  renderTools();
-  alert('✅ Đã xoá!');
-}
-
-/* ============ TAB KEYS ============ */
-async function renderAdminKeys(){
-  const box = document.getElementById('adminKeysView');
-  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
-  const add = document.createElement('div');
-  add.className = 'adm-section';
-  add.innerHTML = `<h4><i class="fa-solid fa-key"></i> Tạo key mới</h4>
-    <input class="adm-input" type="number" id="keyDays" value="1" placeholder="Số ngày">
-    <input class="adm-input" type="number" id="keyQty" value="1" placeholder="Số lượng">
-    <input class="adm-input" id="keyNote" placeholder="Ghi chú">
-    <button class="green" onclick="admGenKeys()">🔑 TẠO KEY</button>`;
-  const res = await adminApi('key_list');
+  const box = document.getElementById('pkgList');
+  if(!box) return;
   box.innerHTML = '';
-  box.appendChild(add);
-  const list = document.createElement('div');
-  list.className = 'adm-section';
-  list.innerHTML = `<h4><i class="fa-solid fa-list"></i> Danh sách key (${res.keys?.length || 0})</h4>`;
-  (res.keys || []).forEach(k => {
-    const d = document.createElement('div');
-    d.style.cssText = 'padding:8px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:6px;background:#fff;font-size:11px';
-    d.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-        <div style="font-family:monospace;font-weight:800;color:${k.used?'#94a3b8':'#3b5bfd'};font-size:12px">${esc(k.code)}</div>
-        <div style="font-size:10px;font-weight:800;color:${k.used?'#ef4444':'#10b981'}">${k.used ? 'ĐÃ DÙNG' : 'CHƯA DÙNG'}</div>
+  (cfg.packages || []).forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'pkg-card';
+    const canBuy = isRealAdmin(u) || Number(u.balance) >= p.price;
+    el.innerHTML = `
+      <div class="pkg-discount">${esc(p.disc || '')}</div>
+      <div class="pkg-head">
+        <div class="pkg-ic"><i class="fa-solid fa-crown"></i></div>
+        <div><div class="pkg-name">${esc(p.name)}</div><div class="pkg-sub">${esc(p.sub || '')}</div></div>
       </div>
-      <div style="color:#64748b;margin-top:3px">${k.days} ngày · ${esc(k.note||'—')}</div>
-      ${k.used ? `<div style="color:#94a3b8;font-size:10px">→ ${esc(k.used_by)} (${fmtDate(k.used_at)})</div>` : ''}
-      <button style="margin-top:5px;padding:4px 8px;border-radius:6px;border:none;background:#ef4444;color:#fff;font-size:10px;font-weight:700;cursor:pointer" onclick="admDelKey('${esc(k.code)}')">Xoá</button>`;
-    list.appendChild(d);
+      <div class="pkg-desc">Sử dụng không giới hạn trong ${p.days} ngày</div>
+      <div class="pkg-price-row">
+        <div><div class="pkg-price-lbl">Giá</div>
+          <div class="pkg-price">${p.price.toLocaleString('vi-VN')}<span class="u">đ</span></div>
+        </div>
+        <div style="text-align:right"><div class="pkg-price-lbl">Cũ</div>
+          <div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div>
+        </div>
+      </div>
+      <button class="pkg-buy" ${canBuy ? '' : 'disabled'}>
+        ${canBuy ? 'MUA NGAY' : 'KHÔNG ĐỦ TIỀN'}
+      </button>`;
+    el.querySelector('.pkg-buy').onclick = () => buyPackage(p.id, p.days, p.price, p.name);
+    box.appendChild(el);
   });
-  box.appendChild(list);
 }
-async function admGenKeys(){
-  const days = parseInt(document.getElementById('keyDays').value, 10) || 1;
-  const qty  = parseInt(document.getElementById('keyQty').value, 10) || 1;
-  const note = document.getElementById('keyNote').value.trim();
-  const res = await adminApi('key_create', { days, qty, note });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  alert('✅ Đã tạo ' + qty + ' key:\n\n' + res.keys.join('\n'));
-  renderAdminKeys();
+
+async function buyPackage(id, days, price, name){
+  const u = currentUser();
+  if(!u) return;
+  if(Number(u.balance) < price){
+    alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance));
+    showPage('deposit');
+    return;
+  }
+  if(!confirm('Mua ' + name + ' với giá ' + fmt(price) + '?')) return;
+  const res = await apiBuyPackage(id, days, price);
+  if(!res || !res.success){
+    alert('❌ ' + (res?.error || 'Lỗi mua gói'));
+    return;
+  }
+  await apiGetUser();
+  alert('✅ Mua thành công!\nHạn mới: ' + fmtDate(res.new_expiry));
+  renderAll();
+  showPage('vip');
 }
-async function admDelKey(code){
-  if(!confirm('Xoá key: ' + code + '?')) return;
-  const res = await adminApi('key_delete', { code });
-  if(!res.success){ alert('❌ ' + res.error); return; }
-  renderAdminKeys();
+
+/* ============================================================
+   DEPOSIT
+   ============================================================ */
+function renderDeposit(){
+  const u = currentUser();
+  if(!u) return;
+  const bal = document.getElementById('depBalance');
+  if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
+  const isVIP = userIsVIP(u);
+  const st = document.getElementById('depStatus');
+  if(st){
+    if(isVIP){
+      st.style.color = '#10b981';
+      st.textContent = isRealAdmin(u) ? 'Admin' : ('Key đến ' + fmtDate(u.key_expiry));
+    } else {
+      st.style.color = '#ef4444';
+      st.textContent = 'Chưa có key hoặc đã hết hạn';
+    }
+  }
+  const cfg = loadConfig();
+  const b = cfg.bank || { name:'', acc:'', holder:'', qr:'' };
+  const bi = document.getElementById('bankInfo');
+  if(!bi) return;
+  bi.innerHTML = `
+    <h4><i class="fa-solid fa-building-columns"></i> ${esc(b.name || 'Ngân hàng')}</h4>
+    <div class="info-box">
+      <div class="row"><span class="lbl">Số tài khoản</span>
+        <span class="val">${esc(b.acc || '—')}</span>
+      </div>
+      <div class="row"><span class="lbl">Chủ tài khoản</span>
+        <span class="val">${esc(b.holder || '—')}</span>
+      </div>
+    </div>
+    <div class="bank-qr">
+      ${b.qr
+        ? `<img src="${b.qr}" alt="QR"><div class="hint">📱 Quét QR để chuyển khoản</div>`
+        : `<div class="empty">⚠️ Admin chưa cấu hình QR<br>Chuyển khoản theo STK trên</div>`}
+    </div>`;
 }
+
+function openDepositModal(){ 
+  const m = document.getElementById('depositModal');
+  if(m) m.classList.add('show'); 
+}
+
+async function submitDeposit(){
+  const u = currentUser();
+  if(!u) return;
+  const amt = parseInt(document.getElementById('depAmount').value, 10);
+  const note = document.getElementById('depNote').value.trim();
+  if(!amt || amt < 10000){ alert('⚠️ Số tiền tối thiểu 10,000đ!'); return; }
+  const res = await apiDepositCreate(amt, note);
+  if(!res || !res.success){
+    alert('❌ ' + (res?.error || 'Lỗi gửi yêu cầu'));
+    return;
+  }
+  document.getElementById('depAmount').value = '';
+  document.getElementById('depNote').value = '';
+  closeModal('depositModal');
+  alert('✅ Đã gửi yêu cầu nạp ' + fmt(amt) + '!\n\nChờ Admin duyệt.');
+}
+
+/* ============================================================
+   PROFILE
+   ============================================================ */
+function renderProfile(){
+  const u = currentUser();
+  if(!u) return;
+  const set = (id, val) => { 
+    const el = document.getElementById(id); 
+    if(el) el.textContent = val; 
+  };
+  set('profName', u.name || u.email.split('@')[0]);
+  set('profBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
+  set('profJoined', u.created_at ? fmtDate(u.created_at).split(' ')[0] : '—');
+  set('profLastLogin', u.last_login ? fmtDateShort(u.last_login) : '—');
+  set('profIP', u.ip || '—');
+  set('profRole', isRealAdmin(u) ? 'ADMIN' : (Number(u.key_expiry) > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
+}
+
+/* ============================================================
+   RENDER ALL
+   ============================================================ */
+function renderAll(){
+  const u = currentUser();
+  if(!u) return;
+  const cfg = loadConfig();
+  const set = (id, val) => { 
+    const el = document.getElementById(id); 
+    if(el) el.textContent = val; 
+  };
+  set('hdrBrand', cfg.site_name || 'BONSICOLA');
+  set('marqueeText', cfg.marquee || '');
+  set('hdrBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
+  set('curBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
+  const av = getAvatarFromStorage() || cfg.login_avatar || DEFAULT_AVATAR;
+  applyAvatarEverywhere(av);
+  if(cfg.login_avatar){
+    const el = document.getElementById('loginAvatarImg');
+    if(el) el.src = cfg.login_avatar;
+  }
+  const isVIP = userIsVIP(u);
+  set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
+  
+  // Admin float
+  const af = document.getElementById('adminFloat');
+  if(af){
+    if(isRealAdmin(u)) af.classList.add('show');
+    else af.classList.remove('show');
+  }
+  
+  renderTools();
+  updateMusicBtn();
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function closeModal(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.remove('show');
+}
+window.closeModal = closeModal;
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('load', async () => {
+  console.log('%c=== BONSICOLA TOOL ===', 'background:linear-gradient(135deg,#3b5bfd,#5b7cff);color:#fff;padding:6px 14px;border-radius:6px;font-weight:bold');
+
+  const cfg = loadConfig();
+  const loginName = document.getElementById('loginSiteName');
+  if(loginName) loginName.textContent = cfg.site_name || 'BONSICOLA';
+  if(cfg.login_avatar){
+    const el = document.getElementById('loginAvatarImg');
+    if(el) el.src = cfg.login_avatar;
+  }
+  const saved = getAvatarFromStorage();
+  if(saved) applyAvatarEverywhere(saved);
+  
+  try{ await loadConfigFromServer(); }catch(e){}
+  
+  // Auto login
+  const u = currentUser();
+  if(u){
+    // Force session admin
+    if(u.email === ADMIN_EMAIL){
+      const users = JSON.parse(localStorage.getItem(LS_USERS) || '{}');
+      if(users[ADMIN_EMAIL]){
+        refreshUser(users[ADMIN_EMAIL]);
+        const s = getSession();
+        if(s){ s.user = users[ADMIN_EMAIL]; localStorage.setItem('bonsicola_session', JSON.stringify(s)); }
+      }
+    }
+    
+    const res = await apiGetUser();
+    if(res && res.success){
+      // Force admin lần nữa
+      const fresh = res.user;
+      if(fresh && fresh.email === ADMIN_EMAIL){
+        fresh.is_admin = 1;
+        refreshUser(fresh);
+      }
+      enterApp();
+    } else {
+      clearSession();
+    }
+  }
+});
+
+/* ============================================================
+   EXPOSE
+   ============================================================ */
+window.renderAll = renderAll;
+window.renderTools = renderTools;
+window.renderVIPPage = renderVIPPage;
+window.renderDeposit = renderDeposit;
+window.renderProfile = renderProfile;
+window.renderHome = renderHome;
+window.startClock = startClock;
+window.initMusic = initMusic;
+window.reloadMusic = reloadMusic;
+window.stopMusic = stopMusic;
+window.toggleMusic = toggleMusic;
+window.buyPackage = buyPackage;
+window.submitDeposit = submitDeposit;
+window.openDepositModal = openDepositModal;
+window.openDrawer = openDrawer;
+window.closeDrawer = closeDrawer;
+window.openHistoryDeposit = openHistoryDeposit;
+window.openHistoryKey = openHistoryKey;
+window.openAvatarModal = openAvatarModal;
+window.closeAvatarModal = closeAvatarModal;
+window.saveAvatar = saveAvatar;
+window.resetAvatar = resetAvatar;
+window.showPage = showPage;
