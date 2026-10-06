@@ -1,6 +1,7 @@
 /* ============================================================
-   ADMIN.JS - FULL (dùng API PHP)
+   ADMIN.JS - FULL (API PHP - BONSICOLA)
    ============================================================ */
+
 function openAdmin(){
   const u = currentUser();
   if(!isRealAdmin(u)){ alert('❌ Không có quyền Admin!'); return; }
@@ -40,12 +41,15 @@ async function renderAdminUsers(){
   box.appendChild(add);
 
   if(!res.success || !res.users){
-    box.innerHTML += '<div style="text-align:center;padding:20px;color:#ef4444;font-weight:700">Lỗi tải users</div>';
+    const err = document.createElement('div');
+    err.style.cssText = 'text-align:center;padding:20px;color:#ef4444;font-weight:700';
+    err.textContent = '❌ Lỗi tải users: ' + (res.error || 'unknown');
+    box.appendChild(err);
     return;
   }
 
   res.users.forEach(u => {
-    const isExpired = !u.is_admin && (!u.key_expiry || u.key_expiry <= now());
+    const isExpired = !u.is_admin && (!u.key_expiry || Number(u.key_expiry) <= now());
     const div = document.createElement('div');
     div.className = 'adm-user';
     const badges = [];
@@ -90,9 +94,8 @@ async function admAddBalance(email){
   const n = parseInt(v, 10);
   if(isNaN(n)){ alert('❌ Số không hợp lệ!'); return; }
 
-  // Lấy balance hiện tại
   const listRes = await adminApi('user_list');
-  const user = listRes.users?.find(u => u.email === email);
+  const user = listRes.users ? listRes.users.find(u => u.email === email) : null;
   if(!user){ alert('❌ Không tìm thấy user'); return; }
   const newBalance = Math.max(0, parseInt(user.balance) + n);
   const res = await adminApi('user_update', { email, balance: newBalance });
@@ -108,9 +111,9 @@ async function admSetKey(email){
   if(isNaN(d) || d <= 0){ alert('❌ Số ngày không hợp lệ!'); return; }
 
   const listRes = await adminApi('user_list');
-  const user = listRes.users?.find(u => u.email === email);
+  const user = listRes.users ? listRes.users.find(u => u.email === email) : null;
   if(!user){ alert('❌ Không tìm thấy user'); return; }
-  const base = (user.key_expiry > now()) ? parseInt(user.key_expiry) : now();
+  const base = (Number(user.key_expiry) > now()) ? Number(user.key_expiry) : now();
   const newExpiry = base + d * 24 * 3600 * 1000;
   const res = await adminApi('user_update', { email, key_expiry: newExpiry });
   if(!res.success){ alert('❌ ' + res.error); return; }
@@ -184,7 +187,7 @@ async function renderAdminPending(){
 async function approveDeposit(id){
   const res = await adminApi('deposit_approve', { id });
   if(!res.success){ alert('❌ ' + (res.error || 'Lỗi duyệt')); return; }
-  alert('✅ Đã duyệt! Tiền đã cộng + key đã tự động mua (nếu đủ).');
+  alert('✅ Đã duyệt! Tiền đã cộng + key tự động mua.');
   renderAdminPending();
 }
 
@@ -211,13 +214,17 @@ async function renderAdminApis(){
   const users = (res.users || []).filter(u => u.last_api);
   if(!users.length){
     const d = document.createElement('div');
-    d.className = 'adm-section'; d.style.textAlign = 'center';
-    d.style.color = '#94a3b8'; d.style.fontWeight = '700';
+    d.className = 'adm-section';
+    d.style.textAlign = 'center';
+    d.style.color = '#94a3b8';
+    d.style.fontWeight = '700';
     d.textContent = 'Chưa có user dùng tool';
-    box.appendChild(d); return;
+    box.appendChild(d);
+    return;
   }
 
-  users.sort((a,b) => (b.last_tool_at||0) - (a.last_tool_at||0));
+  users.sort((a, b) => (Number(b.last_tool_at) || 0) - (Number(a.last_tool_at) || 0));
+
   users.forEach(u => {
     const el = document.createElement('div');
     el.className = 'api-user';
@@ -229,8 +236,7 @@ async function renderAdminApis(){
         IP: <b style="color:#ef4444">${esc(u.ip||'—')}</b>
       </div>
       <div class="api-line"><span style="color:#f59e0b">API:</span> ${esc(u.last_api)}</div>`;
-    box.appendChild(apiLine_split(el));
-    function apiLine_split(x){ return x; }
+    box.appendChild(el);
   });
 }
 
@@ -240,6 +246,7 @@ function renderAdminConfig(){
   const box = document.getElementById('adminConfigView');
   box.innerHTML = '';
 
+  /* CHUNG */
   const site = document.createElement('div');
   site.className = 'adm-section';
   site.innerHTML = `<h4><i class="fa-solid fa-gear"></i> Cấu hình chung</h4>
@@ -250,6 +257,7 @@ function renderAdminConfig(){
     <button class="green" onclick="saveCfgSite()">💾 LƯU</button>`;
   box.appendChild(site);
 
+  /* NGÂN HÀNG */
   const bank = document.createElement('div');
   bank.className = 'adm-section';
   bank.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng + QR</h4>
@@ -262,6 +270,7 @@ function renderAdminConfig(){
     <button class="red" onclick="clearCfgBankQR()">🗑 XOÁ QR</button>`;
   box.appendChild(bank);
 
+  /* NHẠC */
   const music = document.createElement('div');
   music.className = 'adm-section';
   music.innerHTML = `<h4><i class="fa-solid fa-music"></i> Nhạc nền</h4>
@@ -275,6 +284,7 @@ function renderAdminConfig(){
     <button class="red" onclick="clearCfgMusic()">🗑 XOÁ</button>`;
   box.appendChild(music);
 
+  /* AVATAR LOGIN */
   const lg = document.createElement('div');
   lg.className = 'adm-section';
   lg.innerHTML = `<h4><i class="fa-solid fa-image"></i> Avatar đăng nhập</h4>
@@ -284,6 +294,7 @@ function renderAdminConfig(){
     <button class="red" onclick="clearCfgLoginAvatar()">🗑 XOÁ</button>`;
   box.appendChild(lg);
 
+  /* TOOLS JSON */
   const tl = document.createElement('div');
   tl.className = 'adm-section';
   tl.innerHTML = `<h4><i class="fa-solid fa-cubes"></i> Tools (JSON)</h4>
@@ -291,6 +302,7 @@ function renderAdminConfig(){
     <button class="green" onclick="saveCfgTools()">💾 LƯU TOOL LIST</button>`;
   box.appendChild(tl);
 
+  /* TỪNG TOOL */
   cfg.tools.forEach((t, i) => {
     const tr = document.createElement('div');
     tr.className = 'adm-section';
@@ -309,6 +321,7 @@ function renderAdminConfig(){
     box.appendChild(tr);
   });
 
+  /* THÊM TOOL */
   const addT = document.createElement('div');
   addT.className = 'adm-section';
   addT.innerHTML = '<h4><i class="fa-solid fa-plus"></i> Thêm tool</h4><button class="green" onclick="addNewTool()">➕ THÊM</button>';
