@@ -1,4 +1,4 @@
-/* BONSICOLA APP - ADMIN CHỈ CẦN ĐÚNG EMAIL */
+/* BONSICOLA APP - CHỈ LOCALSTORAGE */
 
 function isRealAdmin(u){
   if(!u) return false;
@@ -8,12 +8,10 @@ function isRealAdmin(u){
 }
 window.isRealAdmin = isRealAdmin;
 
-/* Chạy ngay khi load - đảm bảo admin tồn tại */
+/* Chạy ngay khi load */
 (function ensureAdminNow(){
   try{
     if(typeof lsInitUsers === 'function') lsInitUsers();
-    
-    // Force session nếu có
     const raw = localStorage.getItem('bonsicola_session');
     if(raw){
       const s = JSON.parse(raw);
@@ -102,7 +100,9 @@ function saveAvatar(){
   const src = normalizeAvatar(val);
   const img = new Image();
   img.onload = () => {
-    setAvatarToStorage(src); applyAvatarEverywhere(src); pv.innerHTML = `<img src="${src}">`;
+    setAvatarToStorage(src);
+    applyAvatarEverywhere(src);
+    pv.innerHTML = `<img src="${src}">`;
     st.style.color = '#10b981'; st.textContent = '✅ Đã lưu avatar!';
     setTimeout(closeAvatarModal, 900);
   };
@@ -110,7 +110,8 @@ function saveAvatar(){
   img.src = src;
 }
 function resetAvatar(){
-  setAvatarToStorage(null); applyAvatarEverywhere(DEFAULT_AVATAR);
+  setAvatarToStorage(null);
+  applyAvatarEverywhere(DEFAULT_AVATAR);
   document.getElementById('avPreview').innerHTML = '🎀';
   document.getElementById('avBase64Input').value = '';
   const st = document.getElementById('avStatus');
@@ -165,9 +166,15 @@ async function openHistoryDeposit(){
   document.getElementById('historyModal').classList.add('show');
   const res = await apiHistory();
   box.innerHTML = '';
-  if(!res || !res.success){ box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi') + '</div>'; return; }
+  if(!res || !res.success){
+    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi') + '</div>';
+    return;
+  }
   const list = (res.history || []).filter(h => h.type === 'deposit' || h.type === 'admin' || h.type === 'buy' || h.type === 'auto-buy');
-  if(!list.length){ box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có giao dịch</div>'; return; }
+  if(!list.length){
+    box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có giao dịch</div>';
+    return;
+  }
   list.forEach(h => {
     const el = document.createElement('div');
     el.className = 'info-row'; el.style.margin = '0 0 8px';
@@ -189,9 +196,15 @@ async function openHistoryKey(){
   document.getElementById('historyModal').classList.add('show');
   const res = await apiHistory();
   box.innerHTML = '';
-  if(!res || !res.success){ box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi') + '</div>'; return; }
+  if(!res || !res.success){
+    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi') + '</div>';
+    return;
+  }
   const list = (res.history || []).filter(h => h.type === 'key');
-  if(!list.length){ box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có key</div>'; return; }
+  if(!list.length){
+    box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có key</div>';
+    return;
+  }
   list.forEach(h => {
     const el = document.createElement('div');
     el.className = 'info-row'; el.style.margin = '0 0 8px';
@@ -263,7 +276,10 @@ function renderTools(){
   const list = tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
   const tc = document.getElementById('toolCount');
   if(tc) tc.textContent = tools.filter(t => t.enabled).length;
-  if(!list.length){ box.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có tool nào</div>'; return; }
+  if(!list.length){
+    box.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có tool nào</div>';
+    return;
+  }
   list.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tool-card';
@@ -308,7 +324,10 @@ function renderVIPPage(){
 
 async function buyPackage(id, days, price, name){
   const u = currentUser(); if(!u) return;
-  if(Number(u.balance) < price){ alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance)); showPage('deposit'); return; }
+  if(Number(u.balance) < price){
+    alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance));
+    showPage('deposit'); return;
+  }
   if(!confirm('Mua ' + name + ' với giá ' + fmt(price) + '?')) return;
   const res = await apiBuyPackage(id, days, price);
   if(!res || !res.success){ alert('❌ ' + (res?.error || 'Lỗi mua gói')); return; }
@@ -398,7 +417,6 @@ window.addEventListener('load', async () => {
   if(cfg.login_avatar){ const el = document.getElementById('loginAvatarImg'); if(el) el.src = cfg.login_avatar; }
   const saved = getAvatarFromStorage();
   if(saved) applyAvatarEverywhere(saved);
-  try{ await loadConfigFromServer(); }catch(e){}
 
   const u = currentUser();
   if(u){
