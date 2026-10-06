@@ -1,28 +1,44 @@
 /* ============================================================
    APP.JS - BONSICOLA
-   Admin: chỉ cần đúng email + pass
+   ADMIN = CHỈ CẦN ĐÚNG EMAIL
    ============================================================ */
 
 /* ============================================================
-   CHECK ADMIN - CHỈ CẦN ĐÚNG EMAIL ADMIN
+   ⚡ ADMIN CHECK - CHỈ CẦN ĐÚNG EMAIL
    ============================================================ */
 function isRealAdmin(u){
   if(!u) return false;
-  // ✅ ĐÚNG EMAIL ADMIN → LÀ ADMIN
+  // CHỈ CẦN ĐÚNG EMAIL ADMIN → LÀ ADMIN
   if(u.email === 'leminhdz@gmail.com') return true;
-  // Fallback cho admin phụ
   if(u.is_admin === 1 || u.is_admin === '1' || u.is_admin === true) return true;
   return false;
 }
 window.isRealAdmin = isRealAdmin;
 
-/* Đảm bảo admin có trong localStorage ngay khi load */
-(function ensureAdmin(){
+/* Đảm bảo admin có trong LS khi load */
+(function ensureAdminInit(){
   try{
     if(typeof lsInitUsers === 'function') lsInitUsers();
-  }catch(e){
-    console.warn('[ADMIN INIT]', e);
-  }
+  }catch(e){}
+})();
+
+/* ============================================================
+   ⚡ FORCE ADMIN SESSION - CHẠY NGAY KHI LOAD SCRIPT
+   ============================================================ */
+(function forceAdminSession(){
+  try{
+    const raw = localStorage.getItem('bonsicola_session');
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(!s || !s.user) return;
+    
+    // Nếu đúng email admin → force
+    if(s.user.email === 'leminhdz@gmail.com'){
+      s.user.is_admin = 1;
+      localStorage.setItem('bonsicola_session', JSON.stringify(s));
+      console.log('⚡ [FORCE] Admin session forced');
+    }
+  }catch(e){}
 })();
 
 /* ============================================================
@@ -35,7 +51,6 @@ function initMusic(){
   const a = document.getElementById('bgMusic');
   if(!a) return;
   const btn = document.getElementById('musicBtn');
-  
   if(!cfg.bg_music){
     a.src = '';
     if(btn) btn.style.display = 'none';
@@ -44,37 +59,27 @@ function initMusic(){
   if(btn) btn.style.display = 'flex';
   a.src = cfg.bg_music;
   a.volume = 0.5;
-  
   const saved = localStorage.getItem(MUSIC_ON_KEY);
   const shouldPlay = saved === null ? (cfg.bg_music_enabled == 1) : (saved === '1');
   if(shouldPlay) playMusic();
   updateMusicBtn();
 }
-
 function playMusic(){
   const a = document.getElementById('bgMusic');
   if(!a || !a.src) return;
   a.play().then(() => { _musicPlaying = true; updateMusicBtn(); })
          .catch(() => { _musicPlaying = false; updateMusicBtn(); });
 }
-
 function stopMusic(){
   const a = document.getElementById('bgMusic');
   if(a) a.pause();
   _musicPlaying = false;
   updateMusicBtn();
 }
-
 function toggleMusic(){
-  if(_musicPlaying){ 
-    stopMusic(); 
-    localStorage.setItem(MUSIC_ON_KEY, '0'); 
-  } else { 
-    playMusic(); 
-    localStorage.setItem(MUSIC_ON_KEY, '1'); 
-  }
+  if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY, '0'); }
+  else { playMusic(); localStorage.setItem(MUSIC_ON_KEY, '1'); }
 }
-
 function updateMusicBtn(){
   const b = document.getElementById('musicBtn');
   if(!b) return;
@@ -86,7 +91,6 @@ function updateMusicBtn(){
     b.classList.remove('playing'); 
   }
 }
-
 function reloadMusic(){ 
   const a = document.getElementById('bgMusic'); 
   if(a) a.pause(); 
@@ -94,7 +98,7 @@ function reloadMusic(){
 }
 
 /* ============================================================
-   AVATAR LONG-PRESS
+   AVATAR
    ============================================================ */
 (function(){
   const trigger = document.getElementById('avatarTrigger');
@@ -102,7 +106,6 @@ function reloadMusic(){
   const HOLD_MS = 1200;
   let timer = null, holding = false, sx = 0, sy = 0, moved = false;
   const TOL = 12;
-  
   function start(x, y){
     sx = x; sy = y; moved = false; holding = true;
     timer = setTimeout(() => {
@@ -119,7 +122,6 @@ function reloadMusic(){
     if(!holding) return;
     if(Math.abs(x - sx) > TOL || Math.abs(y - sy) > TOL){ moved = true; cancel(); }
   }
-  
   trigger.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
   trigger.addEventListener('mousemove', e => move(e.clientX, e.clientY));
   trigger.addEventListener('mouseup', cancel);
@@ -196,10 +198,10 @@ function openDrawer(){
   document.getElementById('drawerEmail').textContent = u.email;
   const avEl = document.getElementById('drawerAvatar');
   if(avEl) avEl.src = getAvatarFromStorage() || DEFAULT_AVATAR;
-  
+
   const isAdm = isRealAdmin(u);
-  console.log('[DRAWER] isRealAdmin =', isAdm, '| email:', u.email);
-  
+  console.log('[DRAWER]', u.email, '→ Admin:', isAdm);
+
   const diAdmin = document.getElementById('diAdmin');
   if(diAdmin){
     if(isAdm){
@@ -208,7 +210,7 @@ function openDrawer(){
       diAdmin.style.display = 'none';
     }
   }
-  
+
   if(isAdm){
     const pb = document.getElementById('pendBadge');
     if(pb){
@@ -358,7 +360,6 @@ function renderTools(){
   const cats = ['all', ...new Set(tools.map(t => t.cat))];
   const names = { all: 'Tất cả', taixiu: 'Tài Xỉu', sicbo: 'Sicbo', baccarat: 'Baccarat', khac: 'Khác' };
   const ct = document.getElementById('catTabs');
-  
   if(ct){
     ct.innerHTML = '';
     cats.forEach(c => {
@@ -369,19 +370,16 @@ function renderTools(){
       ct.appendChild(b);
     });
   }
-  
   const box = document.getElementById('toolList');
   if(!box) return;
   box.innerHTML = '';
   const list = tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
   const tc = document.getElementById('toolCount');
   if(tc) tc.textContent = tools.filter(t => t.enabled).length;
-  
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có tool nào</div>';
     return;
   }
-  
   list.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tool-card';
@@ -390,7 +388,6 @@ function renderTools(){
     if(t.hot) tags.push('<span class="tool-badge-hot">HOT</span>');
     if(t.is_new) tags.push('<span class="tool-badge-new">NEW</span>');
     if(t.maintenance) tags.push('<span class="tool-badge-hot" style="background:#f1f5f9;color:#64748b;border-color:#cbd5e1">BẢO TRÌ</span>');
-    
     card.innerHTML = `
       <div class="tool-head">
         <div class="tool-logo">${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='🎲'">` : '🎲'}</div>
@@ -410,7 +407,6 @@ function renderTools(){
           <i class="fa-solid ${isVIP ? 'fa-unlock' : 'fa-lock'}"></i> ${isVIP ? 'MỞ TOOL' : 'VIP'}
         </button>
       </div>`;
-    
     card.querySelector('.tool-btn').onclick = () => openToolViewer(t);
     box.appendChild(card);
   });
@@ -439,19 +435,14 @@ function renderVIPPage(){
       <div class="pkg-discount">${esc(p.disc || '')}</div>
       <div class="pkg-head">
         <div class="pkg-ic"><i class="fa-solid fa-crown"></i></div>
-        <div>
-          <div class="pkg-name">${esc(p.name)}</div>
-          <div class="pkg-sub">${esc(p.sub || '')}</div>
-        </div>
+        <div><div class="pkg-name">${esc(p.name)}</div><div class="pkg-sub">${esc(p.sub || '')}</div></div>
       </div>
       <div class="pkg-desc">Sử dụng không giới hạn trong ${p.days} ngày</div>
       <div class="pkg-price-row">
-        <div>
-          <div class="pkg-price-lbl">Giá</div>
+        <div><div class="pkg-price-lbl">Giá</div>
           <div class="pkg-price">${p.price.toLocaleString('vi-VN')}<span class="u">đ</span></div>
         </div>
-        <div style="text-align:right">
-          <div class="pkg-price-lbl">Cũ</div>
+        <div style="text-align:right"><div class="pkg-price-lbl">Cũ</div>
           <div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div>
         </div>
       </div>
@@ -473,10 +464,7 @@ async function buyPackage(id, days, price, name){
   }
   if(!confirm('Mua ' + name + ' với giá ' + fmt(price) + '?')) return;
   const res = await apiBuyPackage(id, days, price);
-  if(!res || !res.success){
-    alert('❌ ' + (res?.error || 'Lỗi mua gói'));
-    return;
-  }
+  if(!res || !res.success){ alert('❌ ' + (res?.error || 'Lỗi mua gói')); return; }
   await apiGetUser();
   alert('✅ Mua thành công!\nHạn mới: ' + fmtDate(res.new_expiry));
   renderAll();
@@ -535,10 +523,7 @@ async function submitDeposit(){
   const note = document.getElementById('depNote').value.trim();
   if(!amt || amt < 10000){ alert('⚠️ Số tiền tối thiểu 10,000đ!'); return; }
   const res = await apiDepositCreate(amt, note);
-  if(!res || !res.success){
-    alert('❌ ' + (res?.error || 'Lỗi gửi yêu cầu'));
-    return;
-  }
+  if(!res || !res.success){ alert('❌ ' + (res?.error || 'Lỗi gửi yêu cầu')); return; }
   document.getElementById('depAmount').value = '';
   document.getElementById('depNote').value = '';
   closeModal('depositModal');
@@ -551,10 +536,7 @@ async function submitDeposit(){
 function renderProfile(){
   const u = currentUser();
   if(!u) return;
-  const set = (id, val) => { 
-    const el = document.getElementById(id); 
-    if(el) el.textContent = val; 
-  };
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   set('profName', u.name || u.email.split('@')[0]);
   set('profBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   set('profJoined', u.created_at ? fmtDate(u.created_at).split(' ')[0] : '—');
@@ -570,10 +552,7 @@ function renderAll(){
   const u = currentUser();
   if(!u) return;
   const cfg = loadConfig();
-  const set = (id, val) => { 
-    const el = document.getElementById(id); 
-    if(el) el.textContent = val; 
-  };
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   set('hdrBrand', cfg.site_name || 'BONSICOLA');
   set('marqueeText', cfg.marquee || '');
   set('hdrBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
@@ -586,20 +565,24 @@ function renderAll(){
   }
   const isVIP = userIsVIP(u);
   set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
-  
-  // Admin float - hiện nếu admin
+
+  // ⚡ Hiện nút admin
   const af = document.getElementById('adminFloat');
   if(af){
-    if(isRealAdmin(u)) af.classList.add('show');
-    else af.classList.remove('show');
+    if(isRealAdmin(u)){
+      af.classList.add('show');
+      af.style.cssText = 'display:flex !important;z-index:9999;';
+    } else {
+      af.classList.remove('show');
+    }
   }
-  
+
   renderTools();
   updateMusicBtn();
 }
 
 /* ============================================================
-   MODAL HELPER
+   MODAL
    ============================================================ */
 function closeModal(id){
   const el = document.getElementById(id);
@@ -622,22 +605,21 @@ window.addEventListener('load', async () => {
   }
   const saved = getAvatarFromStorage();
   if(saved) applyAvatarEverywhere(saved);
-  
+
   try{ await loadConfigFromServer(); }catch(e){}
-  
-  // Auto login nếu có session
+
+  // Auto login
   const u = currentUser();
   if(u){
-    // Force admin nếu đúng email
+    // ⚡ Force admin
     if(u.email === 'leminhdz@gmail.com'){
       u.is_admin = 1;
       refreshUser(u);
-      console.log('[INIT] ✅ Force admin session:', u.email);
+      console.log('⚡ [INIT] Force admin:', u.email);
     }
-    
+
     const res = await apiGetUser();
     if(res && res.success){
-      // Force lại lần nữa sau khi get
       const fresh = res.user;
       if(fresh && fresh.email === 'leminhdz@gmail.com'){
         fresh.is_admin = 1;
