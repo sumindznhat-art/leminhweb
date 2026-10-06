@@ -1,5 +1,5 @@
 /* ============================================================
-   AUTH.JS - Login / Register / Key (không chặn màn hình)
+   AUTH.JS - FULL (gọi API PHP)
    ============================================================ */
 function shakeEl(el){ el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),500); }
 
@@ -19,18 +19,7 @@ function switchTab(t){
   }
 }
 
-async function fetchIP(){
-  try{
-    const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), 4000);
-    const r = await fetch('https://api.ipify.org?format=json', {signal: ctrl.signal});
-    clearTimeout(t);
-    const d = await r.json();
-    return d.ip || 'unknown';
-  } catch(e){ return 'unknown'; }
-}
-
-function doLogin(){
+async function doLogin(){
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const pass = document.getElementById('loginPass').value;
   const err = document.getElementById('loginError');
@@ -38,26 +27,21 @@ function doLogin(){
   err.textContent = ''; err.style.color = '#ef4444';
   if(!email || !pass){ err.textContent = '⚠️ Nhập đầy đủ!'; return; }
   sp.style.display = 'inline-block'; bt.innerHTML = 'ĐANG KIỂM TRA...'; btn.disabled = true;
-  setTimeout(async () => {
-    const u = getUser(email);
-    if(!u || u.password !== pass){
-      sp.style.display = 'none';
-      bt.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP';
-      btn.disabled = false;
-      err.textContent = '❌ Sai email hoặc mật khẩu!';
-      shakeEl(document.getElementById('loginPass'));
-      return;
-    }
-    const ip = await fetchIP();
-    u.ip = ip; u.lastLogin = now();
-    setUser(email, u); setSession(email);
-    bt.innerHTML = '<i class="fa-solid fa-check"></i> OK';
-    err.style.color = '#10b981'; err.textContent = '✅ Đang vào...';
-    setTimeout(enterApp, 500);
-  }, 400);
+
+  const res = await apiLogin(email, pass);
+  sp.style.display = 'none'; btn.disabled = false;
+  bt.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP';
+
+  if(!res.success){
+    err.textContent = '❌ ' + (res.error || 'Đăng nhập thất bại');
+    shakeEl(document.getElementById('loginPass'));
+    return;
+  }
+  err.style.color = '#10b981'; err.textContent = '✅ Đang vào...';
+  setTimeout(enterApp, 400);
 }
 
-function doRegister(){
+async function doRegister(){
   const name = document.getElementById('regName').value.trim();
   const email = document.getElementById('regEmail').value.trim().toLowerCase();
   const pass = document.getElementById('regPass').value;
@@ -69,30 +53,25 @@ function doRegister(){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = '⚠️ Email không hợp lệ!'; return; }
   if(pass.length < 6){ err.textContent = '⚠️ Mật khẩu ≥6 ký tự!'; return; }
   if(pass !== pass2){ err.textContent = '⚠️ Không khớp!'; return; }
-  if(getUser(email)){ err.textContent = '⚠️ Email đã tồn tại!'; return; }
+
   sp.style.display = 'inline-block'; bt.innerHTML = 'ĐANG TẠO...'; btn.disabled = true;
-  setTimeout(async () => {
-    const ip = await fetchIP();
-    setUser(email, {
-      email, password: pass, name, balance: 0, keyExpiry: 0,
-      isAdmin: false, ip, lastLogin: now(), createdAt: now(),
-      history: [], keyHistory: [], lastApi: '', lastTool: '', lastToolAt: 0
-    });
-    if(CLOUD.enabled()) CLOUD.push(true);
-    sp.style.display = 'none';
-    bt.innerHTML = '<i class="fa-solid fa-user-plus"></i> ĐĂNG KÝ';
-    btn.disabled = false;
-    err.style.color = '#10b981'; err.textContent = '✅ Đăng ký thành công!';
-    ['regName','regEmail','regPass','regPass2'].forEach(id => document.getElementById(id).value = '');
-    setTimeout(() => {
-      switchTab('login');
-      document.getElementById('loginEmail').value = email;
-      err.style.color = '#ef4444'; err.textContent = '';
-    }, 900);
-  }, 400);
+  const res = await apiRegister(email, pass, name);
+  sp.style.display = 'none'; btn.disabled = false;
+  bt.innerHTML = '<i class="fa-solid fa-user-plus"></i> ĐĂNG KÝ';
+
+  if(!res.success){
+    err.textContent = '⚠️ ' + (res.error || 'Đăng ký thất bại');
+    return;
+  }
+  err.style.color = '#10b981'; err.textContent = '✅ Đăng ký thành công!';
+  ['regName','regEmail','regPass','regPass2'].forEach(id => document.getElementById(id).value = '');
+  setTimeout(() => {
+    switchTab('login');
+    document.getElementById('loginEmail').value = email;
+    err.style.color = '#ef4444'; err.textContent = '';
+  }, 900);
 }
 
-/* VÀO APP NGAY - KHÔNG CHẶN KEY */
 function enterApp(){
   const u = currentUser();
   if(!u){ doLogout(); return; }
@@ -110,9 +89,42 @@ function enterApp(){
   if(typeof showPage === 'function') showPage('home');
   if(typeof startClock === 'function') startClock();
   if(typeof initMusic === 'function') initMusic();
+
+  // Lấy data mới nhất từ server
+  apiGetUser().then(res => {
+    if(res.success){
+      const fresh = res.user;
+      if(isRealAdmin(fresh)) document.getElementById('adminFloat').classList.add('show');
+      else document.getElementById('adminFloat').classList.remove('show');
+      renderAll(); renderHome();
+    }
+  });
+
+  // Poll user mỗi 5s để cập nhật số dư + key
+  if(window._userPoller) clearInterval(window._userPoller);
+  window._userPoller = setInterval(async () => {
+    const uu = currentUser();
+    if(!uu) return;
+    const r = await apiGetUser();
+    if(r.success){
+      renderAll(); renderHome();
+      const p = document.querySelector('.page.active');
+      if(p && p.id === 'page-vip') renderVIPPage();
+      if(p && p.id === 'page-deposit') renderDeposit();
+      if(p && p.id === 'page-profile') renderProfile();
+      if(!isRealAdmin(r.user) && (!r.user.key_expiry || r.user.key_expiry <= now())){
+        if(document.getElementById('game-screen').classList.contains('show')){
+          alert('🔒 Key đã hết hạn!');
+          closeGame();
+          showPage('vip');
+        }
+      }
+    }
+  }, 5000);
 }
 
 function doLogout(){
+  if(window._userPoller){ clearInterval(window._userPoller); window._userPoller = null; }
   clearSession();
   document.getElementById('login-screen').classList.remove('hide');
   document.getElementById('app').classList.remove('show');
@@ -129,7 +141,6 @@ function doLogout(){
   switchTab('login');
 }
 
-/* MỞ MODAL NHẬP KEY */
 function openKeyModal(){
   const u = currentUser(); if(!u) return;
   document.getElementById('keyInput').value = '';
@@ -138,37 +149,29 @@ function openKeyModal(){
   setTimeout(()=>document.getElementById('keyInput').focus(), 200);
 }
 
-/* KÍCH HOẠT KEY */
-function activateKey(){
-  const u = currentUser(); if(!u) return;
+async function activateKey(){
   const code = document.getElementById('keyInput').value.trim().toUpperCase();
   const err = document.getElementById('keyErr');
   err.textContent = ''; err.style.color = '#ef4444';
   if(!code){ err.textContent = '⚠️ Nhập key!'; return; }
-  const k = findKey(code);
-  if(!k){ err.textContent = '❌ Key không tồn tại!'; return; }
-  if(k.used){ err.textContent = '❌ Key đã sử dụng!'; return; }
-  const base = (u.keyExpiry && u.keyExpiry > now()) ? u.keyExpiry : now();
-  u.keyExpiry = base + k.days * 24 * 3600 * 1000;
-  if(!Array.isArray(u.keyHistory)) u.keyHistory = [];
-  u.keyHistory.push({code, days: k.days, at: now(), via: 'manual'});
-  setUser(u.email, u);
-  markKeyUsed(code, u.email);
-  if(CLOUD.enabled()) CLOUD.push(true);
+
+  const res = await apiKeyActivate(code);
+  if(!res.success){ err.textContent = '❌ ' + (res.error || 'Key lỗi'); return; }
+
   document.getElementById('keyInput').value = '';
   err.style.color = '#10b981';
-  err.textContent = '✅ Kích hoạt thành công! +' + k.days + ' ngày';
+  err.textContent = '✅ Kích hoạt thành công! +' + res.days + ' ngày';
+
+  await apiGetUser();
   setTimeout(() => {
     closeModal('keyModal');
     renderAll();
   }, 900);
 }
 
-/* ĐIỀU HƯỚNG TỪ MODAL KEY */
 function openVipFromKey(){ closeModal('keyModal'); showPage('vip'); }
 function openDepositFromKey(){ closeModal('keyModal'); showPage('deposit'); }
 
-/* Keyboard */
 document.getElementById('loginPass').addEventListener('keypress', e => { if(e.key === 'Enter') doLogin(); });
 document.getElementById('regPass2').addEventListener('keypress', e => { if(e.key === 'Enter') doRegister(); });
 document.getElementById('keyInput').addEventListener('keypress', e => { if(e.key === 'Enter') activateKey(); });
