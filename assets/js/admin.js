@@ -169,6 +169,7 @@ function renderAdminApis(){
 }
 function renderAdminConfig(){
   const cfg=loadConfig();const box=document.getElementById('adminConfigView');box.innerHTML='';
+  /* CHUNG */
   const site=document.createElement('div');site.className='adm-section';
   site.innerHTML=`<h4><i class="fa-solid fa-gear"></i> Chung</h4>
     <input class="adm-input" id="cfgSiteName" value="${esc(cfg.site_name)}" placeholder="Tên site">
@@ -177,37 +178,55 @@ function renderAdminConfig(){
     <textarea class="adm-textarea" id="cfgNotice" placeholder="Thông báo">${esc(cfg.notice)}</textarea>
     <button class="green" onclick="saveCfgSite()">💾 LƯU</button>`;
   box.appendChild(site);
+  /* NGÂN HÀNG + QR */
   const bank=document.createElement('div');bank.className='adm-section';
-  bank.innerHTML=`<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng nhận tiền</h4>
-    <input class="adm-input" id="cfgBankName" value="${esc(cfg.bank.name)}" placeholder="Tên NH">
-    <input class="adm-input" id="cfgBankAcc" value="${esc(cfg.bank.acc)}" placeholder="STK">
+  bank.innerHTML=`<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng + QR nạp tiền</h4>
+    <input class="adm-input" id="cfgBankName" value="${esc(cfg.bank.name)}" placeholder="Tên NH (VD: VPBank)">
+    <input class="adm-input" id="cfgBankAcc" value="${esc(cfg.bank.acc)}" placeholder="Số TK">
     <input class="adm-input" id="cfgBankHolder" value="${esc(cfg.bank.holder)}" placeholder="Chủ TK">
-    <textarea class="adm-textarea" id="cfgBankQR" placeholder="Dán Base64 ảnh QR">${esc(cfg.bank.qr||'')}</textarea>
-    <div style="text-align:center;margin:6px 0">${cfg.bank.qr?`<img src="${cfg.bank.qr}" style="max-width:160px;border-radius:10px">`:'<span style="font-size:11px;color:#94a3b8">Chưa có QR</span>'}</div>
+    <textarea class="adm-textarea" id="cfgBankQR" placeholder="Dán Base64 ảnh QR (data:image/png;base64,...)">${esc(cfg.bank.qr||'')}</textarea>
+    <div style="text-align:center;margin:6px 0">${cfg.bank.qr?`<img src="${cfg.bank.qr}" style="max-width:220px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15)">`:'<span style="font-size:11px;color:#94a3b8">Chưa có QR</span>'}</div>
     <button class="green" onclick="saveCfgBank()">💾 LƯU BANK</button>
     <button class="red" onclick="clearCfgBankQR()">🗑 XOÁ QR</button>`;
   box.appendChild(bank);
+  /* NHẠC */
+  const music=document.createElement('div');music.className='adm-section';
+  music.innerHTML=`<h4><i class="fa-solid fa-music"></i> Nhạc nền</h4>
+    <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px">Dán URL nhạc (.mp3) hoặc Base64 (data:audio/mpeg;base64,...)</p>
+    <textarea class="adm-textarea" id="cfgMusic" placeholder="URL hoặc Base64 nhạc">${esc(cfg.bg_music||'')}</textarea>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin:6px 0">
+      <input type="checkbox" id="cfgMusicEnabled" ${cfg.bg_music_enabled?'checked':''}> Bật nhạc mặc định
+    </label>
+    <button class="green" onclick="saveCfgMusic()">💾 LƯU NHẠC</button>
+    <button class="orange" onclick="testMusic()">▶️ THỬ</button>
+    <button class="red" onclick="clearCfgMusic()">🗑 XOÁ</button>`;
+  box.appendChild(music);
+  /* AVATAR LOGIN */
   const lg=document.createElement('div');lg.className='adm-section';
-  lg.innerHTML=`<h4><i class="fa-solid fa-image"></i> Avatar trang login</h4>
-    <textarea class="adm-textarea" id="cfgLoginAvatar" placeholder="Base64 avatar">${esc(cfg.login_avatar||'')}</textarea>
-    <button class="green" onclick="saveCfgLoginAvatar()">💾 LƯU</button>
+  lg.innerHTML=`<h4><i class="fa-solid fa-image"></i> Avatar mặc định trang ĐĂNG NHẬP</h4>
+    <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px">Avatar này hiện ở màn đăng nhập/đăng ký (khác avatar trong tool)</p>
+    <textarea class="adm-textarea" id="cfgLoginAvatar" placeholder="Dán Base64 ảnh đăng nhập">${esc(cfg.login_avatar||'')}</textarea>
+    <div style="text-align:center;margin:6px 0">${cfg.login_avatar?`<img src="${cfg.login_avatar}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 0 0 3px rgba(56,189,248,.4)">`:''}</div>
+    <button class="green" onclick="saveCfgLoginAvatar()">💾 LƯU AVATAR LOGIN</button>
     <button class="red" onclick="clearCfgLoginAvatar()">🗑 XOÁ</button>`;
   box.appendChild(lg);
+  /* TOOLS */
   const tl=document.createElement('div');tl.className='adm-section';
   tl.innerHTML=`<h4><i class="fa-solid fa-cubes"></i> Tools (JSON)</h4>
     <textarea class="adm-textarea" id="cfgToolJson" style="min-height:200px">${esc(JSON.stringify(cfg.tools,null,2))}</textarea>
     <button class="green" onclick="saveCfgTools()">💾 LƯU TOOL LIST</button>`;
   box.appendChild(tl);
+  /* TOOL chỉnh lẻ */
   cfg.tools.forEach((t,i)=>{
     const tr=document.createElement('div');tr.className='adm-section';tr.style.background='#fff';tr.style.borderStyle='solid';
     const img=getToolImage(t);
     tr.innerHTML=`
       <h4>${img?`<img src="${img}" style="width:26px;height:26px;border-radius:6px;object-fit:cover">`:''} ${esc(t.name)} <span style="font-size:10px;color:#94a3b8">${esc(t.slug)}</span></h4>
       <input class="adm-input" data-f="name" data-i="${i}" value="${esc(t.name)}" placeholder="Tên tool">
-      <input class="adm-input" data-f="game_url" data-i="${i}" value="${esc(t.game_url)}" placeholder="Game URL (iframe hiện web này)">
-      <input class="adm-input" data-f="api_url" data-i="${i}" value="${esc(t.api_url)}" placeholder="API URL (đọc kết quả)">
+      <input class="adm-input" data-f="game_url" data-i="${i}" value="${esc(t.game_url)}" placeholder="Game URL (iframe mở)">
+      <input class="adm-input" data-f="api_url" data-i="${i}" value="${esc(t.api_url)}" placeholder="API URL (đọc KQ)">
       <input class="adm-input" data-f="image" data-i="${i}" value="${esc(t.image)}" placeholder="Ảnh URL">
-      <textarea class="adm-textarea" data-f="image_base64" data-i="${i}" placeholder="Hoặc Base64 ảnh">${esc(t.image_base64||'')}</textarea>
+      <textarea class="adm-textarea" data-f="image_base64" data-i="${i}" placeholder="Hoặc Base64 ảnh TOOL (khác avatar login)">${esc(t.image_base64||'')}</textarea>
       <button class="green" onclick="saveCfgToolAt(${i})">💾 LƯU</button>
       <button class="orange" onclick="toggleToolVip(${i})">${t.vip?'Gỡ VIP':'Set VIP'}</button>
       <button class="red" onclick="deleteToolAt(${i})">Xoá</button>`;
@@ -237,12 +256,28 @@ function saveCfgBank(){
   saveConfig(c);renderAdminConfig();alert('✅ Đã lưu bank!');
 }
 function clearCfgBankQR(){if(!confirm('Xoá QR?'))return;const c=loadConfig();c.bank.qr='';saveConfig(c);renderAdminConfig();}
+function saveCfgMusic(){
+  const c=loadConfig();
+  const m=document.getElementById('cfgMusic').value.trim();
+  c.bg_music=m||'';
+  c.bg_music_enabled=document.getElementById('cfgMusicEnabled').checked?1:0;
+  saveConfig(c);alert('✅ Đã lưu nhạc!');
+  if(typeof reloadMusic==='function')reloadMusic();
+}
+function testMusic(){
+  const m=document.getElementById('cfgMusic').value.trim();
+  if(!m){alert('⚠️ Chưa nhập nhạc!');return;}
+  const a=document.getElementById('bgMusic');
+  a.src=m;a.volume=0.5;a.play().catch(e=>alert('❌ Không phát được: '+e.message));
+}
+function clearCfgMusic(){if(!confirm('Xoá nhạc?'))return;const c=loadConfig();c.bg_music='';saveConfig(c);renderAdminConfig();if(typeof stopMusic==='function')stopMusic();}
 function saveCfgLoginAvatar(){
   const c=loadConfig();
   const v=document.getElementById('cfgLoginAvatar').value.trim();
   c.login_avatar=v?(normalizeAvatar(v)||v):'';
   saveConfig(c);
   if(c.login_avatar)document.getElementById('loginAvatarImg').src=c.login_avatar;
+  renderAdminConfig();
   alert('✅ Đã lưu avatar login!');
 }
 function clearCfgLoginAvatar(){if(!confirm('Xoá avatar login?'))return;const c=loadConfig();c.login_avatar='';saveConfig(c);document.getElementById('loginAvatarImg').src=DEFAULT_AVATAR;renderAdminConfig();}
@@ -266,7 +301,7 @@ function toggleToolVip(i){const c=loadConfig();c.tools[i].vip=c.tools[i].vip?0:1
 function deleteToolAt(i){if(!confirm('Xoá tool?'))return;const c=loadConfig();c.tools.splice(i,1);saveConfig(c);renderAdminConfig();renderTools();}
 function addNewTool(){
   const c=loadConfig();
-  c.tools.push({name:'Tool mới',slug:'tool-'+Date.now(),cat:'taixiu',game_url:'',api_url:'',image:'',image_base64:'',hot:0,vip:1,is_new:1,enabled:1,maintenance:0});
+  c.tools.push({name:'Tool mới',slug:'tool-'+Date.now(),cat:'taixiu',panel:'taixiu',game_url:'',api_url:'',image:'',image_base64:'',hot:0,vip:1,is_new:1,enabled:1,maintenance:0});
   saveConfig(c);renderAdminConfig();
 }
 function renderAdminKeys(){
@@ -301,6 +336,3 @@ function admGenKeys(){
   const arr=[];
   for(let i=0;i<qty;i++)arr.push(createKey(days,note).key);
   alert('✅ Đã tạo '+qty+' key:\n\n'+arr.join('\n'));
-  renderAdminKeys();
-}
-function admDelKey(code){if(!confirm('Xoá key?'))return;saveKeys(loadKeys().filter(k=>k.key!==code));renderAdminKeys();}
