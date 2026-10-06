@@ -1,5 +1,5 @@
 /* ============================================================
-   TOOLS.JS - ẨN HOÀN TOÀN API - Chỉ hiện trạng thái
+   TOOLS.JS - FULL (không hiện API, chỉ hiện trạng thái)
    ============================================================ */
 let activeTool = null, toolInterval = null;
 let _engine = null, _lastSid = null, _lastGy = null, _im = false;
@@ -19,13 +19,13 @@ function setStatus(state, text){
 function openToolViewer(tool){
   const u = currentUser(); if(!u) return;
   const admin = isRealAdmin(u);
-  const isVIP = admin || (u.keyExpiry && u.keyExpiry > now());
+  const isVIP = admin || (u.key_expiry && u.key_expiry > now());
 
   if(!isVIP){
     const hasMoney = u.balance > 0;
     const msg = '🔒 CẦN KÍCH HOẠT KEY ĐỂ MỞ TOOL\n\n' +
                 '💰 Số dư: ' + fmt(u.balance) + '\n' +
-                '📅 Key: ' + (u.keyExpiry ? 'ĐÃ HẾT HẠN ' + fmtDate(u.keyExpiry) : 'Chưa kích hoạt') + '\n\n' +
+                '📅 Key: ' + (u.key_expiry ? 'ĐÃ HẾT HẠN ' + fmtDate(u.key_expiry) : 'Chưa kích hoạt') + '\n\n' +
                 'Bạn muốn làm gì?\n' +
                 '• OK → ' + (hasMoney ? 'Mua gói VIP ngay' : 'Nạp tiền vào ví') + '\n' +
                 '• Cancel → Nhập key có sẵn';
@@ -56,10 +56,8 @@ function openToolViewer(tool){
   document.getElementById('gameFrame').src = tool.game_url || 'about:blank';
   document.getElementById('game-screen').classList.add('show');
 
-  u.lastApi = tool.api_url;
-  u.lastTool = tool.name;
-  u.lastToolAt = now();
-  setUser(u.email, u);
+  // Báo server biết user đang dùng tool nào + API nào
+  apiUpdateLastApi(tool.api_url, tool.name).catch(()=>{});
 
   if(toolInterval){ clearInterval(toolInterval); toolInterval = null; }
   resetPanel();
