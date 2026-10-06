@@ -1,12 +1,11 @@
-/* BONSICOLA STORE - ADMIN CHỈ CẦN ĐÚNG EMAIL */
+/* BONSICOLA STORE - CHỈ LOCALSTORAGE */
 const ADMIN_EMAIL = 'leminhdz@gmail.com';
 const ADMIN_PASS  = 'admin123';
 
-const DB_KEY       = 'bonsicola_user';
-const SESS_KEY     = 'bonsicola_session';
 const AVATAR_KEY   = 'bonsicola_avatar';
 const MUSIC_ON_KEY = 'bonsicola_music';
 const CFG_KEY      = 'bonsicola_config';
+const SESS_KEY     = 'bonsicola_session';
 const LS_USERS     = 'bonsicola_ls_users';
 const LS_KEYS      = 'bonsicola_ls_keys';
 const LS_DEPOSITS  = 'bonsicola_ls_deposits';
@@ -14,38 +13,22 @@ const LS_HISTORY   = 'bonsicola_ls_history';
 
 const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect fill='%23e0f2fe' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>";
 
-let SERVER_AVAILABLE = null;
-
 function now(){ return Date.now(); }
 function fmt(n){ return (Number(n) || 0).toLocaleString('vi-VN') + 'đ'; }
-function fmtDate(ts){ 
+function fmtDate(ts){
   if(!ts) return '—';
   const d = new Date(Number(ts)), p = n => String(n).padStart(2, '0');
   return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function fmtDateShort(ts){ 
+function fmtDateShort(ts){
   if(!ts) return '—';
   const d = new Date(Number(ts)), p = n => String(n).padStart(2, '0');
   return `${p(d.getDate())}/${p(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function esc(s){ 
-  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); 
+function esc(s){
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function getToolImage(t){ if(!t) return ''; return t.image_base64 || t.image || ''; }
-
-function translateError(msg){
-  if(!msg) return 'Lỗi không xác định';
-  if(typeof msg === 'object') msg = msg.message || msg.msg || JSON.stringify(msg);
-  const m = String(msg).toLowerCase();
-  if(m.includes('wrong password') || m.includes('sai mật khẩu')) return 'Sai mật khẩu!';
-  if(m.includes('không tồn tại')) return 'Tài khoản không tồn tại!';
-  if(m.includes('đã tồn tại') || m.includes('already')) return 'Email đã đăng ký!';
-  if(m.includes('không có quyền')) return 'Bạn không có quyền!';
-  if(m.includes('số dư không đủ')) return 'Số dư không đủ!';
-  if(m.includes('sai email')) return 'Sai email hoặc mật khẩu!';
-  if(m.includes('network') || m.includes('failed')) return 'Không kết nối server!';
-  return String(msg);
-}
 
 function lsGet(key, def){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : def; }catch(e){ return def; }
@@ -54,32 +37,35 @@ function lsSet(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
 }
 
-/* Luôn đảm bảo admin tồn tại */
+/* ============ USERS ============ */
 function lsInitUsers(){
   let users = lsGet(LS_USERS, null);
   if(!users || typeof users !== 'object') users = {};
+  const old = users[ADMIN_EMAIL] || {};
   users[ADMIN_EMAIL] = {
     id: 1,
     email: ADMIN_EMAIL,
     password: ADMIN_PASS,
-    name: 'Admin BONSICOLA',
-    balance: 999999999,
-    key_expiry: 9999999999999,
+    name: old.name || 'Admin BONSICOLA',
+    balance: old.balance || 999999999,
+    key_expiry: old.key_expiry || 9999999999999,
     is_admin: 1,
     ip: 'local',
-    last_login: Date.now(),
-    created_at: Date.now(),
+    last_login: old.last_login || Date.now(),
+    created_at: old.created_at || Date.now(),
     last_api: '', last_tool: '', last_tool_at: 0
   };
   lsSet(LS_USERS, users);
   return users;
 }
 
+/* ============ LOCAL API ============ */
 async function localApi(action, params = {}){
   const users = lsInitUsers();
   let keys = lsGet(LS_KEYS, []);
   let deposits = lsGet(LS_DEPOSITS, []);
   let history = lsGet(LS_HISTORY, []);
+
   const email = (params.email || '').toLowerCase().trim();
   const password = params.password || '';
 
@@ -92,11 +78,12 @@ async function localApi(action, params = {}){
   function requireAdmin(){
     const a = checkAuth();
     if(!a.success) return a;
-    if(a.user.email !== ADMIN_EMAIL) return { success: false, error: 'forbidden' };
+    if(a.user.email !== ADMIN_EMAIL) return { success: false, error: 'Bạn không có quyền!' };
     return a;
   }
 
   switch(action){
+
     case 'register': {
       const em = (params.email || '').toLowerCase().trim();
       const pw = params.password || '';
@@ -104,32 +91,48 @@ async function localApi(action, params = {}){
       if(!em || !pw) return { success: false, error: 'Thiếu thông tin' };
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return { success: false, error: 'Email không hợp lệ' };
       if(pw.length < 6) return { success: false, error: 'Mật khẩu ≥ 6 ký tự' };
-      if(em === ADMIN_EMAIL || users[em]) return { success: false, error: 'Email đã tồn tại' };
-      users[em] = { id: Object.keys(users).length + 1, email: em, password: pw, name: nm,
-        balance: 0, key_expiry: 0, is_admin: 0, ip: 'local', last_login: now(), created_at: now() };
+      if(em === ADMIN_EMAIL || users[em]) return { success: false, error: 'Email đã được đăng ký' };
+      users[em] = {
+        id: Object.keys(users).length + 1,
+        email: em, password: pw, name: nm,
+        balance: 0, key_expiry: 0, is_admin: 0,
+        ip: 'local', last_login: now(), created_at: now(),
+        last_api: '', last_tool: '', last_tool_at: 0
+      };
       lsSet(LS_USERS, users);
       return { success: true };
     }
+
     case 'login': {
       const em = email;
       let u = users[em];
+
+      /* Tự tạo admin nếu chưa có */
       if(!u && em === ADMIN_EMAIL && password === ADMIN_PASS){
         lsInitUsers();
         u = users[em];
       }
-      if(!u || u.password !== password) return { success: false, error: 'Sai email hoặc mật khẩu' };
+
+      if(!u || u.password !== password){
+        return { success: false, error: 'Sai email hoặc mật khẩu' };
+      }
+
+      /* Đúng email admin → là admin */
       if(em === ADMIN_EMAIL){
         u.is_admin = 1;
         u.balance = 999999999;
         u.key_expiry = 9999999999999;
       }
+
       u.ip = 'local';
       u.last_login = now();
       lsSet(LS_USERS, users);
+
       const safe = { ...u };
       delete safe.password;
       return { success: true, user: safe };
     }
+
     case 'get_user': {
       const a = checkAuth();
       if(!a.success) return a;
@@ -139,27 +142,34 @@ async function localApi(action, params = {}){
       delete safe.password;
       return { success: true, user: safe };
     }
+
     case 'deposit_create': {
       const a = checkAuth();
       if(!a.success) return a;
       const amount = parseInt(params.amount, 10) || 0;
       if(amount < 10000) return { success: false, error: 'Tối thiểu 10,000đ' };
       const id = 'dep_' + now() + '_' + Math.random().toString(36).slice(2, 7);
-      deposits.push({ id, email: a.user.email, amount, method: 'bank', status: 'pending',
-        note: params.note || '', ip: 'local', created_at: now(), approved_at: 0, rejected_at: 0 });
+      deposits.push({
+        id, email: a.user.email, amount, method: 'bank',
+        status: 'pending', note: params.note || '', ip: 'local',
+        created_at: now(), approved_at: 0, rejected_at: 0
+      });
       lsSet(LS_DEPOSITS, deposits);
       return { success: true, id };
     }
+
     case 'deposit_my': {
       const a = checkAuth(); if(!a.success) return a;
       const list = deposits.filter(d => d.email === a.user.email).sort((x,y) => y.created_at - x.created_at);
       return { success: true, deposits: list };
     }
+
     case 'deposit_pending': {
       const a = requireAdmin(); if(!a.success) return a;
       const list = deposits.filter(d => d.status === 'pending').sort((x,y) => y.created_at - x.created_at);
       return { success: true, deposits: list };
     }
+
     case 'deposit_approve': {
       const a = requireAdmin(); if(!a.success) return a;
       const d = deposits.find(x => x.id === params.id && x.status === 'pending');
@@ -173,6 +183,7 @@ async function localApi(action, params = {}){
       lsSet(LS_USERS, users); lsSet(LS_DEPOSITS, deposits); lsSet(LS_HISTORY, history);
       return { success: true };
     }
+
     case 'deposit_reject': {
       const a = requireAdmin(); if(!a.success) return a;
       const d = deposits.find(x => x.id === params.id && x.status === 'pending');
@@ -181,11 +192,13 @@ async function localApi(action, params = {}){
       lsSet(LS_DEPOSITS, deposits);
       return { success: true };
     }
+
     case 'user_list': {
       const a = requireAdmin(); if(!a.success) return a;
       const list = Object.values(users).map(u => { const s = {...u}; delete s.password; return s; });
       return { success: true, users: list };
     }
+
     case 'user_update': {
       const a = requireAdmin(); if(!a.success) return a;
       const em = (params.email || '').toLowerCase().trim();
@@ -198,6 +211,7 @@ async function localApi(action, params = {}){
       lsSet(LS_USERS, users);
       return { success: true };
     }
+
     case 'user_delete': {
       const a = requireAdmin(); if(!a.success) return a;
       const em = (params.email || '').toLowerCase().trim();
@@ -207,6 +221,7 @@ async function localApi(action, params = {}){
       lsSet(LS_USERS, users);
       return { success: true };
     }
+
     case 'key_create': {
       const a = requireAdmin(); if(!a.success) return a;
       const days = Math.max(1, parseInt(params.days, 10) || 1);
@@ -223,6 +238,7 @@ async function localApi(action, params = {}){
       lsSet(LS_KEYS, keys);
       return { success: true, keys: created };
     }
+
     case 'key_activate': {
       const a = checkAuth(); if(!a.success) return a;
       const code = String(params.code || '').toUpperCase().trim();
@@ -233,26 +249,31 @@ async function localApi(action, params = {}){
       const u = users[a.user.email];
       const base = (Number(u.key_expiry) > now()) ? Number(u.key_expiry) : now();
       const newExpiry = base + k.days * 24 * 3600 * 1000;
-      u.key_expiry = newExpiry; k.used = 1; k.used_by = u.email; k.used_at = now();
+      u.key_expiry = newExpiry;
+      k.used = 1; k.used_by = u.email; k.used_at = now();
       history.push({ email: u.email, type: 'key', amount: 0, balance: u.balance, note: 'Kích hoạt key +' + k.days + ' ngày', at: now() });
       lsSet(LS_USERS, users); lsSet(LS_KEYS, keys); lsSet(LS_HISTORY, history);
       return { success: true, days: k.days, new_expiry: newExpiry };
     }
+
     case 'key_list': {
       const a = requireAdmin(); if(!a.success) return a;
       return { success: true, keys };
     }
+
     case 'key_delete': {
       const a = requireAdmin(); if(!a.success) return a;
       keys = keys.filter(x => x.code !== params.code);
       lsSet(LS_KEYS, keys);
       return { success: true };
     }
+
     case 'history': {
       const a = checkAuth(); if(!a.success) return a;
       const list = history.filter(h => h.email === a.user.email).sort((x,y) => y.at - x.at).slice(0, 100);
       return { success: true, history: list };
     }
+
     case 'buy_package': {
       const a = checkAuth(); if(!a.success) return a;
       const days = parseInt(params.days, 10) || 0;
@@ -262,11 +283,13 @@ async function localApi(action, params = {}){
       if(Number(u.balance) < price) return { success: false, error: 'Số dư không đủ' };
       const base = (Number(u.key_expiry) > now()) ? Number(u.key_expiry) : now();
       const newExpiry = base + days * 24 * 3600 * 1000;
-      u.balance = Number(u.balance) - price; u.key_expiry = newExpiry;
+      u.balance = Number(u.balance) - price;
+      u.key_expiry = newExpiry;
       history.push({ email: u.email, type: 'buy', amount: -price, balance: u.balance, note: 'Mua gói VIP ' + days + ' ngày', at: now() });
       lsSet(LS_USERS, users); lsSet(LS_HISTORY, history);
       return { success: true, new_balance: u.balance, new_expiry: newExpiry };
     }
+
     case 'update_last_api': {
       const a = checkAuth(); if(!a.success) return { success: false };
       const u = users[a.user.email];
@@ -274,10 +297,11 @@ async function localApi(action, params = {}){
       lsSet(LS_USERS, users);
       return { success: true };
     }
+
     case 'config_get': {
-      const cfg = lsGet(CFG_KEY, null);
-      return { success: true, config: cfg };
+      return { success: true, config: lsGet(CFG_KEY, null) };
     }
+
     case 'config_save': {
       const a = requireAdmin(); if(!a.success) return a;
       const local = loadConfig();
@@ -287,7 +311,9 @@ async function localApi(action, params = {}){
       lsSet(CFG_KEY, local);
       return { success: true };
     }
-    default: return { success: false, error: 'Action không hợp lệ' };
+
+    default:
+      return { success: false, error: 'Action không hợp lệ' };
   }
 }
 
@@ -306,41 +332,12 @@ function localAutoBuyKey(users, history, email){
   history.push({ email, type: 'auto-buy', amount: -pkg.price, balance: u.balance, note: 'Tự động mua ' + pkg.name, at: now() });
 }
 
+/* ============ API - LUÔN DÙNG LOCALSTORAGE ============ */
 async function api(action, params = {}, method = 'POST'){
-  if(SERVER_AVAILABLE === false) return await localApi(action, params);
-  const url = (window.API_URL || '/api/index.php') + '?action=' + encodeURIComponent(action);
-  const opts = { method, headers: { 'Content-Type': 'application/json' }, cache: 'no-store' };
-  if(method === 'POST') opts.body = JSON.stringify(params);
-  try{
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    opts.signal = ctrl.signal;
-    const r = await fetch(url, opts);
-    clearTimeout(t);
-    const text = await r.text();
-    if(!text || !text.trim() || text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')){
-      SERVER_AVAILABLE = false;
-      return await localApi(action, params);
-    }
-    let data;
-    try{ data = JSON.parse(text); }
-    catch(e){ SERVER_AVAILABLE = false; return await localApi(action, params); }
-    if(!r.ok && (r.status === 404 || r.status === 500)){
-      SERVER_AVAILABLE = false;
-      return await localApi(action, params);
-    }
-    SERVER_AVAILABLE = true;
-    if(data && data.error !== undefined && data.error !== null){
-      if(typeof data.error === 'object') data.error = data.error.message || JSON.stringify(data.error);
-      data.error = translateError(data.error);
-    }
-    return data;
-  }catch(e){
-    SERVER_AVAILABLE = false;
-    return await localApi(action, params);
-  }
+  return await localApi(action, params);
 }
 
+/* ============ SESSION ============ */
 function getSession(){
   try{
     const raw = localStorage.getItem(SESS_KEY);
@@ -360,6 +357,7 @@ function refreshUser(user){
   if(s){ s.user = user; localStorage.setItem(SESS_KEY, JSON.stringify(s)); }
 }
 
+/* ============ WRAPPERS ============ */
 async function apiLogin(email, password){
   const res = await api('login', { email, password });
   if(res && res.success && res.user){
@@ -414,6 +412,7 @@ async function adminApi(action, params = {}){
   return await api(action, { email: s.email, password: s.password, ...params });
 }
 
+/* ============ CONFIG ============ */
 function loadConfig(){
   try{
     const raw = localStorage.getItem(CFG_KEY);
@@ -440,30 +439,12 @@ function loadConfig(){
 }
 function saveConfig(c){
   try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }catch(e){}
-  const s = getSession();
-  if(s && SERVER_AVAILABLE !== false){
-    api('config_save', { email: s.email, password: s.password, key: 'packages', value: c.packages }).catch(()=>{});
-    api('config_save', { email: s.email, password: s.password, key: 'tools', value: c.tools }).catch(()=>{});
-    api('config_save', { email: s.email, password: s.password, key: 'site', value: {
-      site_name: c.site_name, marquee: c.marquee, notice: c.notice, notice_title: c.notice_title,
-      bank: c.bank, login_avatar: c.login_avatar, bg_music: c.bg_music, bg_music_enabled: c.bg_music_enabled
-    }}).catch(()=>{});
-  }
 }
 async function loadConfigFromServer(){
-  try{
-    const res = await api('config_get');
-    if(!res || !res.success || !res.config) return false;
-    const local = loadConfig();
-    const c = res.config;
-    if(c.packages) local.packages = c.packages;
-    if(c.tools) local.tools = c.tools;
-    if(c.site) Object.assign(local, c.site);
-    localStorage.setItem(CFG_KEY, JSON.stringify(local));
-    return true;
-  }catch(e){ return false; }
+  return false;
 }
 
+/* ============ AVATAR ============ */
 function normalizeAvatar(raw){
   if(!raw) return null;
   raw = String(raw).trim();
@@ -491,8 +472,8 @@ function userIsVIP(u){
   return Number(u.key_expiry) > now();
 }
 
+/* ============ EXPOSE ============ */
 window.api = api;
-window.translateError = translateError;
 window.apiLogin = apiLogin;
 window.apiRegister = apiRegister;
 window.apiGetUser = apiGetUser;
@@ -528,4 +509,5 @@ window.SESS_KEY = SESS_KEY;
 window.CFG_KEY = CFG_KEY;
 window.MUSIC_ON_KEY = MUSIC_ON_KEY;
 window.AVATAR_KEY = AVATAR_KEY;
+window.LS_USERS = LS_USERS;
 window.lsInitUsers = lsInitUsers;
