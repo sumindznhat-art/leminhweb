@@ -1,12 +1,18 @@
-#  TOOL BONSICOLA 
+#  TOOL LEMINH 
+
+## Setup Cloud (3 phút)
+1. Tạo Gist trống: https://gist.github.com (filename: `leminh-data.json`, content: `{}`)
+2. Copy Gist ID từ URL
+3. Tạo Token: https://github.com/settings/tokens (tick scope `gist`)
+4. Dán vào `assets/js/config.js`
+
 ## Deploy
-1. Repo public → Upload 8 file → Settings/Pages/main/root → Save
+Repo public → Upload → Settings/Pages/main/root → Save
+
 ## Admin
-- Email: `leminhdz@gmail.com` | Pass: `admin123`
-## Tính năng
-- Đăng nhập/Đăng ký · Avatar Base64 (login riêng, tool riêng)
-- Nút 3 gạch: Lịch sử nạp · Lịch sử key · Admin (chỉ admin)
-- Ấn MỞ TOOL → tự vào game + panel AI đọc API
-- **Nhạc nền** bật/tắt trên header (admin cấu hình URL hoặc Base64)
-- **Nạp tiền** hiện QR Base64 cỡ lớn
-- Số dư = 0 → không mua key → không mở tool
+- Email: `leminhdz@gmail.com`
+- Pass: `admin123`
+
+## Test
+- Máy A (admin) sửa QR → máy B đợi 15s → thấy ngay
+- Máy B nạp tiền → máy A vào Admin/Duyệt tiền → bấm DUYỆT → máy B nhận key tự động
