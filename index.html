@@ -11,7 +11,6 @@
 </head>
 <body>
 
-<!-- NHẠC NỀN -->
 <audio id="bgMusic" loop preload="none"></audio>
 
 <!-- ============ LOGIN ============ -->
@@ -20,9 +19,9 @@
     <h1 class="login-title" id="loginSiteName">TOOL BONSICOLA</h1>
     <p class="login-sub"><i class="fa-solid fa-shield-halved"></i> <span id="subText">Đăng nhập hệ thống</span></p>
 
-    <div class="login-avatar" id="avatarTrigger" title="Nhấn giữ để đổi avatar đăng nhập">
+    <div class="login-avatar" id="avatarTrigger" title="Nhấn giữ để đổi avatar">
       <div class="login-avatar-ring"></div>
-      <img id="loginAvatarImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23e0f2fe'/><stop offset='100%25' stop-color='%23bae6fd'/></linearGradient></defs><rect fill='url(%23g)' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>">
+      <img id="loginAvatarImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect fill='%23e0f2fe' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>">
       <div class="login-online-dot"></div>
     </div>
 
@@ -31,7 +30,6 @@
       <button class="auth-tab" id="tabReg" onclick="switchTab('reg')">ĐĂNG KÝ</button>
     </div>
 
-    <!-- ĐĂNG NHẬP -->
     <div id="formLogin">
       <div class="login-input-group"><i class="fa-solid fa-envelope icon-left"></i><input type="email" id="loginEmail" placeholder="Email..." autocomplete="off"></div>
       <div class="login-input-group"><i class="fa-solid fa-lock icon-left"></i><input type="password" id="loginPass" placeholder="Mật khẩu..." autocomplete="off"></div>
@@ -41,12 +39,11 @@
       </button>
     </div>
 
-    <!-- ĐĂNG KÝ -->
     <div id="formReg" style="display:none">
-      <div class="login-input-group"><i class="fa-solid fa-user icon-left"></i><input type="text" id="regName" placeholder="Tên hiển thị..." autocomplete="off"></div>
-      <div class="login-input-group"><i class="fa-solid fa-envelope icon-left"></i><input type="email" id="regEmail" placeholder="Email..." autocomplete="off"></div>
-      <div class="login-input-group"><i class="fa-solid fa-lock icon-left"></i><input type="password" id="regPass" placeholder="Mật khẩu..." autocomplete="off"></div>
-      <div class="login-input-group"><i class="fa-solid fa-lock icon-left"></i><input type="password" id="regPass2" placeholder="Nhập lại mật khẩu..." autocomplete="off"></div>
+      <div class="login-input-group"><i class="fa-solid fa-user icon-left"></i><input type="text" id="regName" placeholder="Tên hiển thị..."></div>
+      <div class="login-input-group"><i class="fa-solid fa-envelope icon-left"></i><input type="email" id="regEmail" placeholder="Email..."></div>
+      <div class="login-input-group"><i class="fa-solid fa-lock icon-left"></i><input type="password" id="regPass" placeholder="Mật khẩu..."></div>
+      <div class="login-input-group"><i class="fa-solid fa-lock icon-left"></i><input type="password" id="regPass2" placeholder="Nhập lại mật khẩu..."></div>
       <button class="login-btn" id="btnReg" onclick="doRegister()">
         <span class="login-spinner" id="regSpinner"></span>
         <span id="btnRegText"><i class="fa-solid fa-user-plus"></i> ĐĂNG KÝ</span>
@@ -54,40 +51,24 @@
     </div>
 
     <div class="login-error" id="loginError"></div>
-    <p class="login-footer">©TOOL•<span>BON</span></p>
-  </div>
-</div>
-
-<!-- ============ KEY SCREEN ============ -->
-<div id="key-screen">
-  <div class="key-box">
-    <h2>🔐 CẦN KÍCH HOẠT KEY</h2>
-    <p id="keyMsg">Tài khoản chưa có key.<br>Nạp tiền để mua key hoặc liên hệ Admin.</p>
-    <input type="text" id="keyInput" class="key-input" placeholder="XXXX-XXXX-XXXX" autocomplete="off">
-    <button class="key-btn" onclick="activateKey()"><i class="fa-solid fa-unlock"></i> KÍCH HOẠT</button>
-    <div class="key-err" id="keyErr"></div>
-    <button class="key-btn gold" onclick="openDepositFromKey()"><i class="fa-solid fa-wallet"></i> NẠP TIỀN NGAY</button>
-    <button class="key-btn violet" onclick="openVipFromKey()"><i class="fa-solid fa-crown"></i> MUA GÓI VIP</button>
-    <button class="logout-btn" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> ĐĂNG XUẤT</button>
+    <p class="login-footer">©TOOL•<span>BONIOS</span></p>
   </div>
 </div>
 
 <!-- ============ MAIN APP ============ -->
 <div id="app">
-  <!-- HEADER -->
   <div class="app-header">
     <div class="left">
       <button class="menu-btn" onclick="openDrawer()"><i class="fa-solid fa-bars"></i></button>
-      <div class="brand" id="hdrBrand">TOOL LEMINH</div>
+      <div class="brand" id="hdrBrand">TOOL BONSICOLA</div>
     </div>
     <div class="right">
-      <button class="music-btn" id="musicBtn" onclick="toggleMusic()" title="Bật/tắt nhạc"><i class="fa-solid fa-volume-xmark"></i></button>
+      <button class="music-btn" id="musicBtn" onclick="toggleMusic()"><i class="fa-solid fa-volume-xmark"></i></button>
       <div class="balance-chip" onclick="showPage('deposit')"><i class="fa-solid fa-wallet"></i> <span id="hdrBalance">0đ</span></div>
       <div class="user-avatar" onclick="showPage('profile')"><img id="hdrAvatar" src=""></div>
     </div>
   </div>
 
-  <!-- CONTENT -->
   <div class="app-content" id="appContent">
 
     <!-- HOME -->
@@ -136,7 +117,7 @@
     <div class="page" id="page-tools">
       <div class="tools-header">
         <h2>Kho Tiện Ích & Game</h2>
-        <p>Ấn "MỞ TOOL" để vào game + đọc API</p>
+        <p>Ấn "MỞ TOOL" để vào game </p>
         <div class="cat-tabs" id="catTabs"></div>
       </div>
       <div id="toolList"></div>
@@ -197,13 +178,15 @@
       <div class="info-row"><div class="lbl">Tham gia</div><div class="val" id="profJoined">—</div></div>
       <div class="info-row"><div class="lbl">Đăng nhập mới</div><div class="val" id="profLastLogin">—</div></div>
       <div class="info-row"><div class="lbl">IP</div><div class="val" id="profIP">—</div></div>
+      <button class="logout-btn" style="border-color:#bae6fd;background:#eff6ff;color:#0284c7;margin-bottom:8px" onclick="openKeyModal()">
+        <i class="fa-solid fa-key"></i> Nhập Key / Kích Hoạt
+      </button>
       <button class="logout-btn" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất</button>
       <div style="height:20px"></div>
     </div>
 
   </div>
 
-  <!-- BOTTOM NAV -->
   <div class="bottom-nav">
     <button class="nav-item active" data-page="home" onclick="showPage('home')"><i class="fa-solid fa-house"></i><span>Trang Chủ</span></button>
     <button class="nav-item" data-page="tools" onclick="showPage('tools')"><i class="fa-solid fa-cubes"></i><span>Công Cụ</span></button>
@@ -213,7 +196,7 @@
   </div>
 </div>
 
-<!-- ============ DRAWER 3 GẠCH ============ -->
+<!-- DRAWER 3 GẠCH -->
 <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-head">
@@ -224,15 +207,16 @@
     </div>
   </div>
   <div class="drawer-items">
+    <button class="di" onclick="openKeyModal()"><i class="fa-solid fa-key"></i> Nhập Key kích hoạt</button>
     <button class="di" onclick="openHistoryDeposit()"><i class="fa-solid fa-wallet"></i> Lịch sử nạp tiền</button>
     <button class="di" onclick="openHistoryKey()"><i class="fa-solid fa-key"></i> Lịch sử mua key</button>
     <button class="di" id="diAdmin" onclick="openAdmin()" style="display:none"><i class="fa-solid fa-shield-halved"></i> Quản trị Admin <span class="di-badge" id="pendBadge">0</span></button>
     <button class="di danger" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</button>
   </div>
-  <div class="drawer-foot">© TOOL LEMINH</div>
+  <div class="drawer-foot">© TOOL BONIOS</div>
 </div>
 
-<!-- ============ GAME SCREEN ============ -->
+<!-- GAME SCREEN -->
 <div id="game-screen">
   <div class="gs-header">
     <button class="gs-close" onclick="closeGame()"><i class="fa-solid fa-arrow-left"></i></button>
@@ -250,8 +234,6 @@
     <div class="gs-api-row"><span>Dự đoán:</span><b id="gsResult">—</b></div>
     <div class="gs-api-row"><span>Cập nhật:</span><b id="gsTime">—</b></div>
   </div>
-
-  <!-- AI PANEL -->
   <div class="drag-group" id="dragPanel" style="top:70px;right:14px">
     <div class="predict-card">
       <div class="card-header">
@@ -270,7 +252,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL AVATAR ============ -->
+<!-- MODAL AVATAR -->
 <div class="overlay" id="avatarModal" onclick="if(event.target===this)closeModal('avatarModal')">
   <div class="sheet" style="max-width:460px">
     <div class="sheet-grip"></div>
@@ -285,7 +267,22 @@
   </div>
 </div>
 
-<!-- ============ MODAL NẠP TIỀN ============ -->
+<!-- MODAL NHẬP KEY -->
+<div class="overlay" id="keyModal" onclick="if(event.target===this)closeModal('keyModal')">
+  <div class="sheet" style="max-width:420px">
+    <div class="sheet-grip"></div>
+    <h3>🔐 Nhập Key kích hoạt</h3>
+    <p style="text-align:center;font-size:12px;color:#64748b;font-weight:600;margin-bottom:12px">Nhập key do Admin cấp để kích hoạt tool</p>
+    <input type="text" id="keyInput" class="key-input" placeholder="XXXX-XXXX-XXXX" autocomplete="off">
+    <div class="key-err" id="keyErr"></div>
+    <button class="adm-btn" onclick="activateKey()"><i class="fa-solid fa-unlock"></i> KÍCH HOẠT</button>
+    <button class="adm-btn" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);margin-top:6px" onclick="closeModal('keyModal');showPage('deposit')">
+      <i class="fa-solid fa-wallet"></i> NẠP TIỀN MUA VIP
+    </button>
+  </div>
+</div>
+
+<!-- MODAL NẠP TIỀN -->
 <div class="overlay" id="depositModal" onclick="if(event.target===this)closeModal('depositModal')">
   <div class="sheet" style="max-width:460px">
     <div class="sheet-grip"></div>
@@ -297,7 +294,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL LỊCH SỬ ============ -->
+<!-- MODAL LỊCH SỬ -->
 <div class="overlay" id="historyModal" onclick="if(event.target===this)closeModal('historyModal')">
   <div class="sheet" style="max-width:520px">
     <div class="sheet-grip"></div>
@@ -306,7 +303,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL ADMIN ============ -->
+<!-- MODAL ADMIN -->
 <div class="overlay" id="adminPanel" onclick="if(event.target===this)closeModal('adminPanel')">
   <div class="admin-box">
     <div class="sheet-grip"></div>
@@ -329,10 +326,8 @@
   </div>
 </div>
 
-<!-- ============ NÚT ADMIN FLOAT ============ -->
-<button class="admin-float" id="adminFloat" onclick="openAdmin()" title="Admin Panel"><i class="fa-solid fa-shield-halved"></i></button>
+<button class="admin-float" id="adminFloat" onclick="openAdmin()"><i class="fa-solid fa-shield-halved"></i></button>
 
-<!-- ============ SCRIPTS ============ -->
 <script src="assets/js/config.js"></script>
 <script src="assets/js/store.js"></script>
 <script src="assets/js/engine.js"></script>
