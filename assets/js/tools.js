@@ -1,17 +1,26 @@
 /* ============================================================
-   TOOLS.JS - Tool Viewer (chặn ở nút MỞ TOOL)
+   TOOLS.JS - ẨN HOÀN TOÀN API - Chỉ hiện trạng thái
    ============================================================ */
-let activeTool = null, toolInterval = null, apiInfoVisible = false;
+let activeTool = null, toolInterval = null;
 let _engine = null, _lastSid = null, _lastGy = null, _im = false;
 
 function getToolImage(t){ return t.image_base64 || t.image || ''; }
+
+function setStatus(state, text){
+  const el = document.getElementById('gsStatus');
+  const txt = document.getElementById('gsStatusText');
+  if(!el || !txt) return;
+  el.classList.remove('err','wait');
+  if(state === 'err') el.classList.add('err');
+  else if(state === 'wait') el.classList.add('wait');
+  txt.textContent = text;
+}
 
 function openToolViewer(tool){
   const u = currentUser(); if(!u) return;
   const admin = isRealAdmin(u);
   const isVIP = admin || (u.keyExpiry && u.keyExpiry > now());
 
-  /* CHẶN NGAY TẠI ĐÂY - KHÔNG HIỆN MÀN HÌNH NHẬP KEY */
   if(!isVIP){
     const hasMoney = u.balance > 0;
     const msg = '🔒 CẦN KÍCH HOẠT KEY ĐỂ MỞ TOOL\n\n' +
@@ -38,24 +47,11 @@ function openToolViewer(tool){
 
   document.getElementById('gsName').textContent = tool.name;
   document.getElementById('gsLogo').src = getToolImage(tool);
-  document.getElementById('gsApiUrl').textContent = admin ? tool.api_url : '*** ẩn ***';
-  document.getElementById('gsApiStatus').textContent = 'Đang kết nối...';
-  document.getElementById('gsApiStatus').style.color = '#fbbf24';
-  document.getElementById('gsSession').textContent = '#---';
-  document.getElementById('gsResult').textContent = '—';
-  document.getElementById('gsTime').textContent = '—';
   document.getElementById('panelTitle').textContent = (tool.panel === 'md5') ? 'MD5' : 'TÀI XỈU';
   const card = document.querySelector('.predict-card');
   if(card) card.classList.toggle('md5', tool.panel === 'md5');
 
-  const apiBtn = document.getElementById('gsApiBtn');
-  if(apiBtn){
-    if(admin){ apiBtn.style.display = 'flex'; apiBtn.classList.add('show'); }
-    else { apiBtn.style.display = 'none'; apiBtn.classList.remove('show'); }
-  }
-  apiInfoVisible = false;
-  const apiInfo = document.getElementById('gsApiInfo');
-  if(apiInfo) apiInfo.classList.remove('show');
+  setStatus('wait', 'Đang kết nối');
 
   document.getElementById('gameFrame').src = tool.game_url || 'about:blank';
   document.getElementById('game-screen').classList.add('show');
@@ -78,12 +74,6 @@ function closeGame(){
   activeTool = null;
 }
 
-function toggleApiInfo(){
-  const u = currentUser();
-  if(!isRealAdmin(u)){ alert('🔒 Chỉ Admin mới xem được API!'); return; }
-  apiInfoVisible = !apiInfoVisible;
-  document.getElementById('gsApiInfo').classList.toggle('show', apiInfoVisible);
-}
 function togglePanel(){ document.querySelector('.predict-card').classList.toggle('collapsed'); }
 
 function resetPanel(){
@@ -121,23 +111,21 @@ async function tickApi(){
     if(!Array.isArray(list) || !list.length) throw 0;
     const asc = [...list].sort((a,b) => (a.id||0) - (b.id||0));
     const nid = list[0].id ?? asc[asc.length-1].id ?? Date.now();
-    document.getElementById('gsApiStatus').textContent = '✅ OK';
-    document.getElementById('gsApiStatus').style.color = '#10b981';
-    document.getElementById('gsSession').textContent = '#' + (nid + 1);
-    document.getElementById('gsTime').textContent = new Date().toLocaleTimeString('vi-VN');
+
+    setStatus('ok', 'OK');
+    document.getElementById('sidValue').textContent = '#' + (nid + 1);
+
     if(_lastSid !== null && nid !== _lastSid){
       _im = true;
       setCircles(null, false, null, null);
       document.getElementById('statusText').textContent = 'Chờ ván mới...';
-      document.getElementById('gsResult').textContent = 'Đang chờ...';
       setTimeout(() => { _im = false; analyze(asc, nid); }, 5000);
       _lastSid = nid; return;
     }
     _lastSid = nid;
     if(!_im) analyze(asc, nid);
   }catch(e){
-    document.getElementById('gsApiStatus').textContent = '❌ Lỗi kết nối';
-    document.getElementById('gsApiStatus').style.color = '#ef4444';
+    setStatus('err', 'Lỗi');
     document.getElementById('statusText').textContent = 'Đang kết nối lại...';
   }
 }
@@ -150,7 +138,6 @@ function analyze(asc, nid){
     document.getElementById('statusText').textContent = 'Sẵn sàng';
     document.getElementById('statusText').classList.add('analyzing');
     _lastGy = qs.g;
-    document.getElementById('gsResult').textContent = qs.g + ' (' + qs.conf + '%)';
   } else {
     setCircles(null, false, null, null);
     document.getElementById('statusText').textContent = 'Chờ dữ liệu...';
