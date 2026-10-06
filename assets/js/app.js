@@ -1,11 +1,18 @@
 /* ============================================================
-   APP.JS - TOOL LEMINH v5 (Cloud Sync)
-   Bao gồm: Music, Avatar, Drawer, History, Pages, Clock,
-   Tools, VIP, Deposit, Profile, Cloud Poller, Init
+   APP.JS - TOOL LEMINH v6 (Fix Admin + Ẩn API)
    ============================================================ */
 
+/* ===== CHECK ADMIN ROBUST ===== */
+function isRealAdmin(u){
+  if(!u) return false;
+  if(u.isAdmin === true) return true;
+  if(u.email === 'leminhdz@gmail.com') return true;
+  return false;
+}
+window.isRealAdmin = isRealAdmin;
+
 /* ============================================================
-   1. MUSIC (Nhạc nền)
+   MUSIC
    ============================================================ */
 let _musicPlaying = false;
 
@@ -13,13 +20,12 @@ function initMusic(){
   const cfg = loadConfig();
   const a = document.getElementById('bgMusic');
   if(!a) return;
+  const btn = document.getElementById('musicBtn');
   if(!cfg.bg_music){
     a.src = '';
-    const btn = document.getElementById('musicBtn');
     if(btn) btn.style.display = 'none';
     return;
   }
-  const btn = document.getElementById('musicBtn');
   if(btn) btn.style.display = 'flex';
   a.src = cfg.bg_music;
   a.volume = 0.5;
@@ -31,76 +37,43 @@ function initMusic(){
 function playMusic(){
   const a = document.getElementById('bgMusic');
   if(!a || !a.src) return;
-  a.play()
-    .then(() => { _musicPlaying = true; updateMusicBtn(); })
-    .catch(() => { _musicPlaying = false; updateMusicBtn(); });
+  a.play().then(()=>{_musicPlaying=true;updateMusicBtn();}).catch(()=>{_musicPlaying=false;updateMusicBtn();});
 }
 function stopMusic(){
   const a = document.getElementById('bgMusic');
   if(!a) return;
-  a.pause();
-  _musicPlaying = false;
-  updateMusicBtn();
+  a.pause(); _musicPlaying=false; updateMusicBtn();
 }
 function toggleMusic(){
-  if(_musicPlaying){
-    stopMusic();
-    localStorage.setItem(MUSIC_ON_KEY, '0');
-  } else {
-    playMusic();
-    localStorage.setItem(MUSIC_ON_KEY, '1');
-  }
+  if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY,'0'); }
+  else { playMusic(); localStorage.setItem(MUSIC_ON_KEY,'1'); }
 }
 function updateMusicBtn(){
   const b = document.getElementById('musicBtn');
   if(!b) return;
-  if(_musicPlaying){
-    b.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
-    b.classList.add('playing');
-  } else {
-    b.innerHTML = '<i class="fa-solid fa-volume-xmark"></i>';
-    b.classList.remove('playing');
-  }
+  if(_musicPlaying){ b.innerHTML='<i class="fa-solid fa-volume-high"></i>'; b.classList.add('playing'); }
+  else { b.innerHTML='<i class="fa-solid fa-volume-xmark"></i>'; b.classList.remove('playing'); }
 }
-function reloadMusic(){
-  const a = document.getElementById('bgMusic');
-  if(a) a.pause();
-  initMusic();
-}
+function reloadMusic(){ const a=document.getElementById('bgMusic'); if(a) a.pause(); initMusic(); }
 
 /* ============================================================
-   2. AVATAR (Long-press đổi avatar)
+   AVATAR LONG-PRESS
    ============================================================ */
 (function(){
   const trigger = document.getElementById('avatarTrigger');
   if(!trigger) return;
   const HOLD_MS = 1200;
-  let timer = null, holding = false, sx = 0, sy = 0, moved = false;
+  let timer=null, holding=false, sx=0, sy=0, moved=false;
   const TOL = 12;
-
-  function start(x, y){
-    sx = x; sy = y; moved = false; holding = true;
-    timer = setTimeout(() => {
-      if(!holding || moved) return;
-      holding = false;
-      openAvatarModal();
-    }, HOLD_MS);
-  }
-  function cancel(){
-    holding = false;
-    if(timer){ clearTimeout(timer); timer = null; }
-  }
-  function move(x, y){
-    if(!holding) return;
-    if(Math.abs(x - sx) > TOL || Math.abs(y - sy) > TOL){ moved = true; cancel(); }
-  }
-
+  function start(x,y){ sx=x;sy=y;moved=false;holding=true; timer=setTimeout(()=>{ if(!holding||moved) return; holding=false; openAvatarModal(); }, HOLD_MS); }
+  function cancel(){ holding=false; if(timer){ clearTimeout(timer); timer=null; } }
+  function move(x,y){ if(!holding) return; if(Math.abs(x-sx)>TOL||Math.abs(y-sy)>TOL){ moved=true; cancel(); } }
   trigger.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
   trigger.addEventListener('mousemove', e => move(e.clientX, e.clientY));
   trigger.addEventListener('mouseup', cancel);
   trigger.addEventListener('mouseleave', cancel);
-  trigger.addEventListener('touchstart', e => { const t = e.touches[0]; start(t.clientX, t.clientY); }, {passive:true});
-  trigger.addEventListener('touchmove', e => { const t = e.touches[0]; move(t.clientX, t.clientY); }, {passive:true});
+  trigger.addEventListener('touchstart', e => { const t=e.touches[0]; start(t.clientX,t.clientY); }, {passive:true});
+  trigger.addEventListener('touchmove', e => { const t=e.touches[0]; move(t.clientX,t.clientY); }, {passive:true});
   trigger.addEventListener('touchend', cancel);
   trigger.addEventListener('touchcancel', cancel);
   trigger.addEventListener('contextmenu', e => e.preventDefault());
@@ -110,12 +83,10 @@ function openAvatarModal(){
   const m = document.getElementById('avatarModal');
   const inp = document.getElementById('avBase64Input');
   const pv = document.getElementById('avPreview');
-  let s = null;
-  try{ s = localStorage.getItem(AVATAR_KEY); }catch(e){}
+  let s=null; try{ s=localStorage.getItem(AVATAR_KEY); }catch(e){}
   document.getElementById('avStatus').textContent = '';
   document.getElementById('avModalTitle').textContent = '🎀 Đổi Avatar của bạn';
-  if(s){ pv.innerHTML = `<img src="${s}">`; inp.value = ''; }
-  else { pv.innerHTML = '🎀'; inp.value = ''; }
+  if(s){ pv.innerHTML=`<img src="${s}">`; inp.value=''; } else { pv.innerHTML='🎀'; inp.value=''; }
   m.classList.add('show');
 }
 function closeAvatarModal(){ document.getElementById('avatarModal').classList.remove('show'); }
@@ -124,19 +95,16 @@ function saveAvatar(){
   const st = document.getElementById('avStatus');
   const pv = document.getElementById('avPreview');
   const val = inp.value.trim();
-  if(!val || val.length < 50){
-    st.style.color = '#ef4444'; st.textContent = '⚠️ Base64 không hợp lệ!'; return;
-  }
+  if(!val || val.length < 50){ st.style.color='#ef4444'; st.textContent='⚠️ Base64 không hợp lệ!'; return; }
   const src = normalizeAvatar(val);
   const img = new Image();
   img.onload = () => {
     try{ localStorage.setItem(AVATAR_KEY, src); }catch(e){}
-    applyAvatarEverywhere(src);
-    pv.innerHTML = `<img src="${src}">`;
-    st.style.color = '#10b981'; st.textContent = '✅ Đã lưu!';
+    applyAvatarEverywhere(src); pv.innerHTML = `<img src="${src}">`;
+    st.style.color='#10b981'; st.textContent='✅ Đã lưu!';
     setTimeout(closeAvatarModal, 900);
   };
-  img.onerror = () => { st.style.color = '#ef4444'; st.textContent = '❌ Ảnh lỗi!'; };
+  img.onerror = () => { st.style.color='#ef4444'; st.textContent='❌ Ảnh lỗi!'; };
   img.src = src;
 }
 function resetAvatar(){
@@ -150,18 +118,34 @@ function resetAvatar(){
 }
 
 /* ============================================================
-   3. DRAWER (Menu 3 gạch)
+   DRAWER (Fix admin bấm được)
    ============================================================ */
 function openDrawer(){
-  document.getElementById('drawer').classList.add('show');
-  document.getElementById('drawerMask').classList.add('show');
   const u = currentUser();
   if(!u) return;
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('drawerMask').classList.add('show');
   document.getElementById('drawerName').textContent = u.name || u.email.split('@')[0];
   document.getElementById('drawerEmail').textContent = u.email;
-  document.getElementById('drawerAvatar').src = localStorage.getItem(AVATAR_KEY) || DEFAULT_AVATAR;
+  const avEl = document.getElementById('drawerAvatar');
+  if(avEl) avEl.src = localStorage.getItem(AVATAR_KEY) || DEFAULT_AVATAR;
+
   const diAdmin = document.getElementById('diAdmin');
-  if(diAdmin) diAdmin.style.display = u.isAdmin ? 'flex' : 'none';
+  if(diAdmin){
+    if(isRealAdmin(u)){
+      diAdmin.style.cssText = 'display:flex !important;pointer-events:auto !important;visibility:visible !important;opacity:1 !important;';
+    } else {
+      diAdmin.style.display = 'none';
+    }
+  }
+  if(isRealAdmin(u)){
+    const pb = document.getElementById('pendBadge');
+    if(pb){
+      const pend = loadDeposits().filter(d => d.status === 'pending');
+      pb.textContent = pend.length;
+      pb.style.display = pend.length > 0 ? 'inline-block' : 'none';
+    }
+  }
 }
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('show');
@@ -169,7 +153,7 @@ function closeDrawer(){
 }
 
 /* ============================================================
-   4. HISTORY (Lịch sử nạp + lịch sử key)
+   HISTORY
    ============================================================ */
 function openHistoryDeposit(){
   closeDrawer();
@@ -183,22 +167,16 @@ function openHistoryDeposit(){
     box.innerHTML = '';
     list.forEach(h => {
       const el = document.createElement('div');
-      el.className = 'info-row';
-      el.style.margin = '0 0 8px';
+      el.className = 'info-row'; el.style.margin = '0 0 8px';
       const color = h.amount > 0 ? '#10b981' : '#ef4444';
       const label = h.type === 'deposit' ? 'Nạp tiền'
                   : h.type === 'admin'   ? 'Admin điều chỉnh'
                   : h.type === 'auto-buy'? 'Tự động mua VIP'
                   : 'Mua VIP';
-      el.innerHTML = `
-        <div>
-          <div class="lbl">${label}</div>
-          <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="val" style="color:${color}">${h.amount > 0 ? '+' : ''}${fmt(h.amount)}</div>
-          <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div>
-        </div>`;
+      el.innerHTML = `<div><div class="lbl">${label}</div>
+        <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+        <div style="text-align:right"><div class="val" style="color:${color}">${h.amount > 0 ? '+' : ''}${fmt(h.amount)}</div>
+        <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div></div>`;
       box.appendChild(el);
     });
   }
@@ -216,21 +194,15 @@ function openHistoryKey(){
     box.innerHTML = '';
     list.forEach(h => {
       const el = document.createElement('div');
-      el.className = 'info-row';
-      el.style.margin = '0 0 8px';
+      el.className = 'info-row'; el.style.margin = '0 0 8px';
       const via = h.via === 'admin' ? 'Admin cấp'
                 : h.via === 'auto'  ? 'Tự động mua'
                 : h.via === 'buy'   ? 'Mua gói VIP'
                 : 'Tự nhập';
-      el.innerHTML = `
-        <div>
-          <div class="lbl">${via}</div>
-          <div style="font-size:11px;font-family:monospace;color:#3b5bfd;font-weight:800">${esc(h.code)}</div>
-          <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="val" style="color:#10b981">+${h.days} ngày</div>
-        </div>`;
+      el.innerHTML = `<div><div class="lbl">${via}</div>
+        <div style="font-size:11px;font-family:monospace;color:#3b5bfd;font-weight:800">${esc(h.code)}</div>
+        <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+        <div style="text-align:right"><div class="val" style="color:#10b981">+${h.days} ngày</div></div>`;
       box.appendChild(el);
     });
   }
@@ -238,7 +210,7 @@ function openHistoryKey(){
 }
 
 /* ============================================================
-   5. PAGES (Chuyển trang)
+   PAGES
    ============================================================ */
 function showPage(name){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -254,46 +226,39 @@ function showPage(name){
   if(name === 'tools')   renderTools();
   if(name === 'home')    renderHome();
 }
-
 function renderHome(){
   const u = currentUser(); if(!u) return;
   const cfg = loadConfig();
   const el1 = document.getElementById('toolCount');
   const el2 = document.getElementById('curBalance');
   if(el1) el1.textContent = cfg.tools.filter(t=>t.enabled).length;
-  if(el2) el2.textContent = u.isAdmin ? '∞' : fmt(u.balance);
+  if(el2) el2.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
 }
 
 /* ============================================================
-   6. CLOCK (Đồng hồ realtime)
+   CLOCK
    ============================================================ */
 let clockStarted = false;
 function startClock(){
-  if(clockStarted) return;
-  clockStarted = true;
+  if(clockStarted) return; clockStarted = true;
   function tick(){
-    const d = new Date();
-    const p = n => String(n).padStart(2, '0');
+    const d = new Date(), p = n => String(n).padStart(2, '0');
     const clock = document.getElementById('liveClock');
     const date = document.getElementById('liveDate');
     if(clock) clock.textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
     if(date)  date.textContent  = `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;
   }
-  tick();
-  setInterval(tick, 1000);
+  tick(); setInterval(tick, 1000);
 }
 
 /* ============================================================
-   7. TOOLS (Render danh sách công cụ)
+   TOOLS
    ============================================================ */
 let activeCat = 'all';
-
 function renderTools(){
   const cfg = loadConfig();
   const u = currentUser();
-  const isVIP = u && (u.isAdmin || (u.keyExpiry && u.keyExpiry > now()));
-
-  // Category tabs
+  const isVIP = u && (isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now()));
   const cats = ['all', ...new Set(cfg.tools.map(t => t.cat))];
   const names = {all:'Tất cả', taixiu:'Tài Xỉu', sicbo:'Sicbo', baccarat:'Baccarat'};
   const ct = document.getElementById('catTabs');
@@ -306,15 +271,12 @@ function renderTools(){
     b.onclick = () => { activeCat = c; renderTools(); };
     ct.appendChild(b);
   });
-
-  // Tool list
   const box = document.getElementById('toolList');
   if(!box) return;
   box.innerHTML = '';
   const list = cfg.tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
   const tc = document.getElementById('toolCount');
   if(tc) tc.textContent = cfg.tools.filter(t => t.enabled).length;
-
   list.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tool-card';
@@ -323,22 +285,15 @@ function renderTools(){
     if(t.hot) tags.push('<span class="tool-badge-hot">HOT</span>');
     if(t.is_new) tags.push('<span class="tool-badge-new">NEW</span>');
     if(t.maintenance) tags.push('<span class="tool-badge-hot" style="background:#f1f5f9;color:#64748b;border-color:#cbd5e1">BẢO TRÌ</span>');
-
-    card.innerHTML = `
-      <div class="tool-head">
+    card.innerHTML = `<div class="tool-head">
         <div class="tool-logo">${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='🎲'">` : '🎲'}</div>
         <div class="tool-info">
-          <div class="tool-name-row">
-            <span class="tool-name">${esc(t.name)}</span>
-            ${tags.join('')}
-          </div>
+          <div class="tool-name-row"><span class="tool-name">${esc(t.name)}</span>${tags.join('')}</div>
           <div class="tool-desc">${esc(t.game_url || 'Nhấn để mở tool')}</div>
         </div>
       </div>
       <div class="tool-footer">
-        <div class="vip-req ${isVIP ? 'ok' : ''}">
-          <span class="dot"></span>${isVIP ? 'Đã mở khoá' : 'Yêu cầu VIP'}
-        </div>
+        <div class="vip-req ${isVIP ? 'ok' : ''}"><span class="dot"></span>${isVIP ? 'Đã mở khoá' : 'Yêu cầu VIP'}</div>
         <button class="tool-btn ${isVIP ? 'unlocked' : ''}">
           <i class="fa-solid ${isVIP ? 'fa-unlock' : 'fa-lock'}"></i> ${isVIP ? 'MỞ TOOL' : 'VIP'}
         </button>
@@ -349,43 +304,29 @@ function renderTools(){
 }
 
 /* ============================================================
-   8. VIP (Trang mua gói)
+   VIP
    ============================================================ */
 function renderVIPPage(){
   const u = currentUser(); if(!u) return;
   const bal = document.getElementById('vipBalance');
   const exp = document.getElementById('vipExpiry');
-  if(bal) bal.textContent = u.isAdmin ? '∞' : fmt(u.balance);
-  if(exp) exp.textContent = u.isAdmin ? 'Vĩnh viễn' : (u.keyExpiry ? fmtDate(u.keyExpiry) : 'Chưa kích hoạt');
-
+  if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
+  if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' : (u.keyExpiry ? fmtDate(u.keyExpiry) : 'Chưa kích hoạt');
   const cfg = loadConfig();
   const box = document.getElementById('pkgList');
   if(!box) return;
   box.innerHTML = '';
-
   cfg.packages.forEach(p => {
     const el = document.createElement('div');
     el.className = 'pkg-card';
-    const canBuy = u.isAdmin || u.balance >= p.price;
-    el.innerHTML = `
-      <div class="pkg-discount">${esc(p.disc || '')}</div>
-      <div class="pkg-head">
-        <div class="pkg-ic"><i class="fa-solid fa-crown"></i></div>
-        <div>
-          <div class="pkg-name">${esc(p.name)}</div>
-          <div class="pkg-sub">${esc(p.sub || '')}</div>
-        </div>
-      </div>
+    const canBuy = isRealAdmin(u) || u.balance >= p.price;
+    el.innerHTML = `<div class="pkg-discount">${esc(p.disc || '')}</div>
+      <div class="pkg-head"><div class="pkg-ic"><i class="fa-solid fa-crown"></i></div>
+        <div><div class="pkg-name">${esc(p.name)}</div><div class="pkg-sub">${esc(p.sub || '')}</div></div></div>
       <div class="pkg-desc">Sử dụng không giới hạn trong ${p.days} ngày</div>
       <div class="pkg-price-row">
-        <div>
-          <div class="pkg-price-lbl">Giá</div>
-          <div class="pkg-price">${p.price.toLocaleString('vi-VN')}<span class="u">đ</span></div>
-        </div>
-        <div style="text-align:right">
-          <div class="pkg-price-lbl">Cũ</div>
-          <div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div>
-        </div>
+        <div><div class="pkg-price-lbl">Giá</div><div class="pkg-price">${p.price.toLocaleString('vi-VN')}<span class="u">đ</span></div></div>
+        <div style="text-align:right"><div class="pkg-price-lbl">Cũ</div><div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div></div>
       </div>
       <button class="pkg-buy" ${canBuy ? '' : 'disabled'}>${canBuy ? 'MUA NGAY' : 'KHÔNG ĐỦ TIỀN'}</button>`;
     el.querySelector('.pkg-buy').onclick = () => buyPackage(p.id);
@@ -399,8 +340,7 @@ function buyPackage(id){
   if(!p) return;
   if(u.balance < p.price){
     alert('❌ Số dư không đủ!\nCần: ' + fmt(p.price) + '\nCó: ' + fmt(u.balance) + '\n\nVui lòng NẠP TIỀN trước!');
-    showPage('deposit');
-    return;
+    showPage('deposit'); return;
   }
   if(!confirm('Mua ' + p.name + ' với giá ' + fmt(p.price) + '?')) return;
   u.balance -= p.price;
@@ -411,11 +351,8 @@ function buyPackage(id){
   setUser(u.email, u);
   if(CLOUD.enabled()) CLOUD.push(true);
   alert('✅ Mua thành công!\nHạn mới: ' + fmtDate(u.keyExpiry));
-  renderAll();
-  showPage('vip');
+  renderAll(); showPage('vip');
 }
-
-/* Tự động mua key khi được admin duyệt tiền */
 function autoBuyKeyForUser(user){
   if(!user) return;
   const cfg = loadConfig();
@@ -432,31 +369,23 @@ function autoBuyKeyForUser(user){
 }
 
 /* ============================================================
-   9. DEPOSIT (Nạp tiền - hiện QR)
+   DEPOSIT
    ============================================================ */
 function renderDeposit(){
   const u = currentUser(); if(!u) return;
   const bal = document.getElementById('depBalance');
-  if(bal) bal.textContent = u.isAdmin ? '∞' : fmt(u.balance);
-
-  const isVIP = u.isAdmin || (u.keyExpiry && u.keyExpiry > now());
+  if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
+  const isVIP = isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now());
   const st = document.getElementById('depStatus');
   if(st){
-    if(isVIP){
-      st.style.color = '#10b981';
-      st.textContent = u.isAdmin ? 'Admin' : ('Key đến ' + fmtDate(u.keyExpiry));
-    } else {
-      st.style.color = '#ef4444';
-      st.textContent = 'Chưa có key';
-    }
+    if(isVIP){ st.style.color='#10b981'; st.textContent = isRealAdmin(u) ? 'Admin' : ('Key đến ' + fmtDate(u.keyExpiry)); }
+    else { st.style.color='#ef4444'; st.textContent = 'Chưa có key'; }
   }
-
   const cfg = loadConfig();
   const b = cfg.bank;
   const bi = document.getElementById('bankInfo');
   if(!bi) return;
-  bi.innerHTML = `
-    <h4><i class="fa-solid fa-building-columns"></i> ${esc(b.name || 'Ngân hàng')}</h4>
+  bi.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> ${esc(b.name || 'Ngân hàng')}</h4>
     <div class="info-box">
       <div class="row"><span class="lbl">Số tài khoản</span><span class="val">${esc(b.acc || '—')}</span></div>
       <div class="row"><span class="lbl">Chủ tài khoản</span><span class="val">${esc(b.holder || '—')}</span></div>
@@ -478,25 +407,25 @@ function submitDeposit(){
   document.getElementById('depNote').value = '';
   closeModal('depositModal');
   if(CLOUD.enabled()) CLOUD.push(true);
-  alert('✅ Đã gửi yêu cầu nạp ' + fmt(amt) + '!\n\nChờ Admin duyệt. Sau khi duyệt tự động mua key.');
+  alert('✅ Đã gửi yêu cầu nạp ' + fmt(amt) + '!\n\nChờ Admin duyệt.');
 }
 
 /* ============================================================
-   10. PROFILE (Trang cá nhân)
+   PROFILE
    ============================================================ */
 function renderProfile(){
   const u = currentUser(); if(!u) return;
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   set('profName', u.name || u.email.split('@')[0]);
-  set('profBalance', u.isAdmin ? '∞' : fmt(u.balance));
+  set('profBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   set('profJoined', fmtDate(u.createdAt).split(' ')[0]);
   set('profLastLogin', fmtDateShort(u.lastLogin));
   set('profIP', u.ip || '—');
-  set('profRole', u.isAdmin ? 'ADMIN' : (u.keyExpiry > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
+  set('profRole', isRealAdmin(u) ? 'ADMIN' : (u.keyExpiry > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
 }
 
 /* ============================================================
-   11. RENDER ALL
+   RENDER ALL
    ============================================================ */
 function renderAll(){
   const u = currentUser(); if(!u) return;
@@ -504,70 +433,63 @@ function renderAll(){
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   set('hdrBrand', cfg.site_name);
   set('marqueeText', cfg.marquee);
-  set('hdrBalance', u.isAdmin ? '∞' : fmt(u.balance));
-  set('curBalance', u.isAdmin ? '∞' : fmt(u.balance));
-
+  set('hdrBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
+  set('curBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   const av = localStorage.getItem(AVATAR_KEY) || cfg.login_avatar || DEFAULT_AVATAR;
   applyAvatarEverywhere(av);
   if(cfg.login_avatar){
     const el = document.getElementById('loginAvatarImg');
     if(el) el.src = cfg.login_avatar;
   }
-  const isVIP = u.isAdmin || (u.keyExpiry && u.keyExpiry > now());
-  set('curPackage', u.isAdmin ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
+  const isVIP = isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now());
+  set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
+
+  // Force hiện/ẩn nút admin
+  const af = document.getElementById('adminFloat');
+  if(af){
+    if(isRealAdmin(u)) af.classList.add('show');
+    else af.classList.remove('show');
+  }
 
   renderTools();
   updateMusicBtn();
 }
 
 /* ============================================================
-   12. CLOUD POLLER (Tự động đồng bộ)
+   CLOUD POLLER
    ============================================================ */
 let _cloudPollerStarted = false;
-let _cloudPollInterval = null;
-
 function startCloudPoller(){
   if(_cloudPollerStarted) return;
   _cloudPollerStarted = true;
-
   const interval = (window.CLOUD_CONFIG && window.CLOUD_CONFIG.poll_interval) || 15000;
   console.log('[CLOUD] Poller started. Interval:', interval + 'ms');
-
   if(!CLOUD.enabled()){
     console.warn('[CLOUD] ⚠️ CHƯA BẬT. Sửa config.js: enabled=true + gist_id + token');
     return;
   }
-
-  _cloudPollInterval = setInterval(async () => {
+  setInterval(async () => {
     if(!CLOUD.enabled()) return;
     if(CLOUD._pushing) return;
     if(Date.now() - (CLOUD._lastPull || 0) < 3000) return;
-
     const before = localStorage.getItem(CLOUD_TS_KEY) || '0';
     const ok = await CLOUD.pull(true);
     if(!ok) return;
     const after = localStorage.getItem(CLOUD_TS_KEY) || '0';
     if(before === after) return;
-
     console.log('[CLOUD] 🔄 Data mới → refresh UI');
     const cu = currentUser();
     if(cu){
-      // Refresh UI chính
-      renderAll();
-      renderHome();
+      renderAll(); renderHome();
       if(document.getElementById('page-deposit').classList.contains('active')) renderDeposit();
       if(document.getElementById('page-vip').classList.contains('active')) renderVIPPage();
       if(document.getElementById('page-profile').classList.contains('active')) renderProfile();
       if(document.getElementById('page-tools').classList.contains('active')) renderTools();
-
-      // Refresh admin panel nếu đang mở
       if(document.getElementById('adminPanel').classList.contains('show')){
         const tab = document.querySelector('.admin-tab.active');
         if(tab && tab.dataset.atab) switchAdminTab(tab.dataset.atab);
       }
-
-      // Kiểm tra user có bị hết hạn key không
-      if(!cu.isAdmin){
+      if(!isRealAdmin(cu)){
         const fresh = getUser(cu.email);
         if(fresh && (!fresh.keyExpiry || fresh.keyExpiry <= now())){
           if(document.getElementById('app').classList.contains('show')){
@@ -583,10 +505,10 @@ function startCloudPoller(){
 }
 
 /* ============================================================
-   13. INIT (Khởi tạo khi tải trang)
+   INIT
    ============================================================ */
 window.addEventListener('load', async () => {
-  console.log('=== TOOL LEMINH ===');
+  console.log('=== TOOL LEMINH v6 ===');
   const cfgCloud = window.CLOUD_CONFIG || {};
   console.log('[CLOUD] Config:', {
     enabled: cfgCloud.enabled,
@@ -594,18 +516,12 @@ window.addEventListener('load', async () => {
     token: cfgCloud.token ? cfgCloud.token.slice(0, 10) + '...' : '(trống)'
   });
   console.log('[CLOUD] Enabled?', CLOUD.enabled());
-
-  // Pull cloud trước khi render lần đầu
   if(CLOUD.enabled()){
     try{
       const ok = await CLOUD.pull(true);
       console.log('[CLOUD] Bootstrap pull:', ok ? 'OK (có data mới)' : 'no data / không đổi');
-    }catch(e){
-      console.warn('[CLOUD] Bootstrap fail', e);
-    }
+    }catch(e){ console.warn('[CLOUD] Bootstrap fail', e); }
   }
-
-  // Khởi tạo UI login
   const cfg = loadConfig();
   const loginName = document.getElementById('loginSiteName');
   if(loginName) loginName.textContent = cfg.site_name || 'TOOL LEMINH';
@@ -615,18 +531,12 @@ window.addEventListener('load', async () => {
   }
   const saved = localStorage.getItem(AVATAR_KEY);
   if(saved) applyAvatarEverywhere(saved);
-
-  // Auto login nếu có session
   const u = currentUser();
   if(u) enterApp();
-
-  // Khởi động cloud poller
   startCloudPoller();
-
-  // Kiểm tra key hết hạn định kỳ 30s
   setInterval(() => {
     const cu = currentUser();
-    if(!cu || cu.isAdmin) return;
+    if(!cu || isRealAdmin(cu)) return;
     if(!cu.keyExpiry || cu.keyExpiry <= now()){
       if(document.getElementById('app').classList.contains('show')){
         alert('🔒 Key hết hạn! Vui lòng mua VIP hoặc nhập key mới.');
@@ -638,22 +548,11 @@ window.addEventListener('load', async () => {
   }, 30000);
 });
 
-/* ============================================================
-   14. KEYBOARD SHORTCUTS
-   ============================================================ */
-document.getElementById('loginPass').addEventListener('keypress', e => {
-  if(e.key === 'Enter') doLogin();
-});
-document.getElementById('regPass2').addEventListener('keypress', e => {
-  if(e.key === 'Enter') doRegister();
-});
-document.getElementById('keyInput').addEventListener('keypress', e => {
-  if(e.key === 'Enter') activateKey();
-});
+document.getElementById('loginPass').addEventListener('keypress', e => { if(e.key === 'Enter') doLogin(); });
+document.getElementById('regPass2').addEventListener('keypress', e => { if(e.key === 'Enter') doRegister(); });
+document.getElementById('keyInput').addEventListener('keypress', e => { if(e.key === 'Enter') activateKey(); });
 
-/* ============================================================
-   15. EXPOSE (cho admin panel dùng)
-   ============================================================ */
+/* Expose */
 window.renderAll = renderAll;
 window.renderTools = renderTools;
 window.renderVIPPage = renderVIPPage;
