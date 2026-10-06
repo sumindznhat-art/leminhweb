@@ -1,5 +1,5 @@
 /* ============================================================
-   APP.JS - FULL
+   APP.JS - FULL (API PHP - BONSICOLA)
    ============================================================ */
 
 function isRealAdmin(u){
@@ -27,9 +27,14 @@ function initMusic(){
 function playMusic(){
   const a = document.getElementById('bgMusic');
   if(!a || !a.src) return;
-  a.play().then(()=>{_musicPlaying=true;updateMusicBtn();}).catch(()=>{_musicPlaying=false;updateMusicBtn();});
+  a.play().then(() => { _musicPlaying = true; updateMusicBtn(); })
+         .catch(() => { _musicPlaying = false; updateMusicBtn(); });
 }
-function stopMusic(){ const a = document.getElementById('bgMusic'); if(a) a.pause(); _musicPlaying=false; updateMusicBtn(); }
+function stopMusic(){
+  const a = document.getElementById('bgMusic');
+  if(a) a.pause();
+  _musicPlaying = false; updateMusicBtn();
+}
 function toggleMusic(){
   if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY,'0'); }
   else { playMusic(); localStorage.setItem(MUSIC_ON_KEY,'1'); }
@@ -112,8 +117,11 @@ function openDrawer(){
   if(avEl) avEl.src = localStorage.getItem(AVATAR_KEY) || DEFAULT_AVATAR;
   const diAdmin = document.getElementById('diAdmin');
   if(diAdmin){
-    if(isRealAdmin(u)) diAdmin.style.cssText = 'display:flex !important;pointer-events:auto !important;visibility:visible !important;opacity:1 !important;';
-    else diAdmin.style.display = 'none';
+    if(isRealAdmin(u)){
+      diAdmin.style.cssText = 'display:flex !important;pointer-events:auto !important;visibility:visible !important;opacity:1 !important;';
+    } else {
+      diAdmin.style.display = 'none';
+    }
   }
 }
 function closeDrawer(){
@@ -221,7 +229,7 @@ let activeCat = 'all';
 function renderTools(){
   const cfg = loadConfig();
   const u = currentUser();
-  const isVIP = u && (isRealAdmin(u) || (u.key_expiry && u.key_expiry > now()));
+  const isVIP = u && (isRealAdmin(u) || (u.key_expiry && Number(u.key_expiry) > now()));
   const cats = ['all', ...new Set(cfg.tools.map(t => t.cat))];
   const names = {all:'Tất cả', taixiu:'Tài Xỉu', sicbo:'Sicbo', baccarat:'Baccarat'};
   const ct = document.getElementById('catTabs'); if(!ct) return;
@@ -317,7 +325,7 @@ function renderDeposit(){
   const u = currentUser(); if(!u) return;
   const bal = document.getElementById('depBalance');
   if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
-  const isVIP = isRealAdmin(u) || (u.key_expiry && u.key_expiry > now());
+  const isVIP = isRealAdmin(u) || (u.key_expiry && Number(u.key_expiry) > now());
   const st = document.getElementById('depStatus');
   if(st){
     if(isVIP){ st.style.color='#10b981'; st.textContent = isRealAdmin(u) ? 'Admin' : ('Key đến ' + fmtDate(u.key_expiry)); }
@@ -361,7 +369,7 @@ function renderProfile(){
   set('profJoined', u.created_at ? fmtDate(u.created_at).split(' ')[0] : '—');
   set('profLastLogin', u.last_login ? fmtDateShort(u.last_login) : '—');
   set('profIP', u.ip || '—');
-  set('profRole', isRealAdmin(u) ? 'ADMIN' : (u.key_expiry > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
+  set('profRole', isRealAdmin(u) ? 'ADMIN' : (Number(u.key_expiry) > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
 }
 
 /* ===== RENDER ALL ===== */
@@ -379,7 +387,7 @@ function renderAll(){
     const el = document.getElementById('loginAvatarImg');
     if(el) el.src = cfg.login_avatar;
   }
-  const isVIP = isRealAdmin(u) || (u.key_expiry && u.key_expiry > now());
+  const isVIP = isRealAdmin(u) || (u.key_expiry && Number(u.key_expiry) > now());
   set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
   const af = document.getElementById('adminFloat');
   if(af){
@@ -407,7 +415,6 @@ window.addEventListener('load', async () => {
 
   const u = currentUser();
   if(u){
-    // Verify user còn tồn tại trên server
     const res = await apiGetUser();
     if(res.success){
       enterApp();
