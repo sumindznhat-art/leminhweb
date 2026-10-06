@@ -1,5 +1,5 @@
 /* ============================================================
-   TOOL LEMINH v7 - FULL CSS
+   BONSICOLA TOOL - FULL CSS v8
    ============================================================ */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
@@ -420,7 +420,6 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
 .pay-info .desc{font-size:11px;color:var(--sub);font-weight:600;margin-top:2px}
 .pay-arrow{color:#cbd5e1}
 
-/* Bank info + QR */
 .bank-info{
   margin:12px 14px;background:#fff;border-radius:18px;
   padding:18px;border:1px solid var(--line);text-align:center;
@@ -702,14 +701,12 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
   padding:10px 12px;background:#111827;color:#fff;
   border-bottom:1px solid #1f2937;gap:10px;
 }
-.gs-close,.gs-api{
+.gs-close{
   width:38px;height:38px;border-radius:10px;border:none;
-  background:rgba(255,255,255,.08);color:#fff;
-  font-size:16px;cursor:pointer;
+  background:linear-gradient(135deg,#ef4444,#b91c1c);
+  color:#fff;font-size:16px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
 }
-.gs-close{background:linear-gradient(135deg,#ef4444,#b91c1c)}
-.gs-api{background:linear-gradient(135deg,#3b5bfd,#5b7cff)}
 .gs-title{
   flex:1;display:flex;align-items:center;gap:10px;
   font-family:'Baloo 2',sans-serif;font-weight:800;
@@ -723,26 +720,6 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .game-frame{flex:1;width:100%;border:none;background:#fff}
-
-.gs-api-info{
-  position:absolute;top:60px;left:12px;right:12px;
-  background:rgba(17,24,39,.95);color:#fff;
-  border-radius:12px;padding:12px;border:1px solid #374151;
-  font-family:'Courier New',monospace;font-size:11px;
-  display:none;z-index:10;
-}
-.gs-api-info.show{display:block}
-.gs-api-row{
-  display:flex;justify-content:space-between;
-  padding:5px 0;border-bottom:1px dashed #374151;gap:10px;
-}
-.gs-api-row:last-child{border-bottom:none}
-.gs-api-row span{color:#94a3b8}
-.gs-api-row code{
-  color:#fbbf24;word-break:break-all;
-  max-width:60%;text-align:right;
-}
-.gs-api-row b{color:#10b981}
 
 /* ============================================================
    11. AI PANEL (TÀI XỈU / MD5)
@@ -1035,40 +1012,79 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
 }
 
 /* ============================================================
-   14. FIX v7 - Nút admin + API + Modal key
+   14. ADMIN FLOAT BUTTON
    ============================================================ */
-#diAdmin{
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  position: relative;
-  z-index: 10;
+.admin-float{
+  position:fixed;top:14px;right:14px;z-index:200;
+  width:44px;height:44px;border-radius:50%;border:3px solid #fff;
+  background:linear-gradient(135deg,#ef4444,#b91c1c);
+  color:#fff;font-size:17px;cursor:pointer;display:none;
+  align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(239,68,68,.5);
 }
-#diAdmin i{ color: #ef4444 !important; }
-#diAdmin:hover{ background: #fef2f2 !important; }
+.admin-float.show{display:flex}
 
-/* Ẩn nút API mặc định - chỉ admin mới hiện qua JS */
-.gs-api{ display: none; }
-.gs-api.show{ display: flex !important; }
+/* ============================================================
+   15. BONSICOLA FIX v8 - Trạng thái thay cho API
+   ============================================================ */
+.gs-status{
+  display:flex;align-items:center;gap:5px;
+  font-family:'Baloo 2',sans-serif;
+  font-size:11px;font-weight:800;
+  padding:6px 12px;border-radius:99px;
+  background:rgba(16,185,129,.15);
+  color:#10b981;
+  white-space:nowrap;
+}
+.gs-status .dot{
+  width:7px;height:7px;border-radius:50%;
+  background:#10b981;
+  box-shadow:0 0 8px #10b981;
+  animation:dotPulse 1.5s ease-in-out infinite;
+}
+@keyframes dotPulse{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.2);opacity:.7}
+}
+.gs-status.wait{
+  background:rgba(245,158,11,.15);
+  color:#f59e0b;
+}
+.gs-status.wait .dot{
+  background:#f59e0b;
+  box-shadow:0 0 8px #f59e0b;
+}
+.gs-status.err{
+  background:rgba(239,68,68,.15);
+  color:#ef4444;
+}
+.gs-status.err .dot{
+  background:#ef4444;
+  box-shadow:0 0 8px #ef4444;
+  animation:none;
+}
 
-#adminFloat{ z-index: 9999; }
-#adminFloat.show{ display: flex !important; }
+/* Nút admin drawer luôn bấm được */
+#diAdmin{
+  cursor:pointer !important;
+  pointer-events:auto !important;
+  position:relative;
+  z-index:10;
+}
+#diAdmin i{color:#ef4444 !important}
+#diAdmin:hover{background:#fef2f2 !important}
 
-/* Modal nhập key */
+#adminFloat{z-index:9999}
+#adminFloat.show{display:flex !important}
+
+/* Modal key */
 .key-input{
-  width:100%;
-  padding:14px;
-  border-radius:12px;
+  width:100%;padding:14px;border-radius:12px;
   border:2.5px solid rgba(56,189,248,.4);
-  font-family:inherit;
-  font-size:14px;
-  font-weight:700;
-  letter-spacing:1.5px;
-  text-align:center;
-  text-transform:uppercase;
-  outline:none;
-  margin-bottom:12px;
-  color:#0c4a6e;
-  background:#fff;
+  font-family:inherit;font-size:14px;font-weight:700;
+  letter-spacing:1.5px;text-align:center;
+  text-transform:uppercase;outline:none;
+  margin-bottom:12px;color:#0c4a6e;background:#fff;
   transition:border-color .2s,box-shadow .2s;
 }
 .key-input:focus{
@@ -1076,16 +1092,13 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
   box-shadow:0 0 0 4px rgba(56,189,248,.22);
 }
 .key-err{
-  min-height:16px;
-  color:#ef4444;
-  font-size:12px;
-  font-weight:700;
-  margin-bottom:8px;
-  text-align:center;
+  min-height:16px;color:#ef4444;
+  font-size:12px;font-weight:700;
+  margin-bottom:8px;text-align:center;
 }
 
 /* ============================================================
-   15. SHAKE EFFECT
+   16. SHAKE EFFECT
    ============================================================ */
 @keyframes shake{
   0%,100%{transform:translateX(0)}
@@ -1097,7 +1110,15 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
 .shake{animation:shake .45s ease}
 
 /* ============================================================
-   16. RESPONSIVE
+   17. SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+
+/* ============================================================
+   18. RESPONSIVE
    ============================================================ */
 @media(max-width:460px){
   .login-box{padding:32px 20px 22px;border-radius:22px}
@@ -1108,4 +1129,6 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:v
   .admin-box{padding:12px 10px 18px}
   .admin-tabs{gap:4px}
   .admin-tab{font-size:10px;padding:7px 8px}
+  .predict-card{width:210px}
+  .bank-qr img{max-width:280px}
 }
