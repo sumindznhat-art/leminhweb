@@ -1,5 +1,5 @@
 /* ============================================================
-   ADMIN.JS - FULL (API PHP - BONSICOLA)
+   ADMIN.JS - FULL + THÊM GAME BẰNG HTML
    ============================================================ */
 
 function openAdmin(){
@@ -12,7 +12,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
 function switchAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.atab === tab));
-  ['users','pending','apis','config','keys'].forEach(k => {
+  ['users','pending','apis','config','keys','games'].forEach(k => {
     const el = document.getElementById('admin' + k.charAt(0).toUpperCase() + k.slice(1) + 'View');
     if(el) el.style.display = (k === tab) ? 'block' : 'none';
   });
@@ -21,6 +21,7 @@ function switchAdminTab(tab){
   if(tab === 'apis')    renderAdminApis();
   if(tab === 'config')  renderAdminConfig();
   if(tab === 'keys')    renderAdminKeys();
+  if(tab === 'games')   renderAdminGames();
 }
 
 /* ============ TAB USERS ============ */
@@ -41,10 +42,7 @@ async function renderAdminUsers(){
   box.appendChild(add);
 
   if(!res.success || !res.users){
-    const err = document.createElement('div');
-    err.style.cssText = 'text-align:center;padding:20px;color:#ef4444;font-weight:700';
-    err.textContent = '❌ Lỗi tải users: ' + (res.error || 'unknown');
-    box.appendChild(err);
+    box.innerHTML += '<div style="text-align:center;padding:20px;color:#ef4444;font-weight:700">Lỗi tải users</div>';
     return;
   }
 
@@ -76,7 +74,6 @@ async function renderAdminUsers(){
     box.appendChild(div);
   });
 }
-
 async function admCreateUser(){
   const email = document.getElementById('admNewEmail').value.trim().toLowerCase();
   const pass = document.getElementById('admNewPass').value;
@@ -87,15 +84,13 @@ async function admCreateUser(){
   alert('✅ Đã tạo: ' + email);
   renderAdminUsers();
 }
-
 async function admAddBalance(email){
   const v = prompt('Cộng/trừ tiền cho ' + email + '\n(số dương = cộng, âm = trừ)', '50000');
   if(v === null) return;
   const n = parseInt(v, 10);
   if(isNaN(n)){ alert('❌ Số không hợp lệ!'); return; }
-
   const listRes = await adminApi('user_list');
-  const user = listRes.users ? listRes.users.find(u => u.email === email) : null;
+  const user = listRes.users?.find(u => u.email === email);
   if(!user){ alert('❌ Không tìm thấy user'); return; }
   const newBalance = Math.max(0, parseInt(user.balance) + n);
   const res = await adminApi('user_update', { email, balance: newBalance });
@@ -103,15 +98,13 @@ async function admAddBalance(email){
   alert('✅ Số dư mới: ' + fmt(newBalance));
   renderAdminUsers();
 }
-
 async function admSetKey(email){
   const v = prompt('Cấp thêm bao nhiêu NGÀY?', '7');
   if(v === null) return;
   const d = parseInt(v, 10);
   if(isNaN(d) || d <= 0){ alert('❌ Số ngày không hợp lệ!'); return; }
-
   const listRes = await adminApi('user_list');
-  const user = listRes.users ? listRes.users.find(u => u.email === email) : null;
+  const user = listRes.users?.find(u => u.email === email);
   if(!user){ alert('❌ Không tìm thấy user'); return; }
   const base = (Number(user.key_expiry) > now()) ? Number(user.key_expiry) : now();
   const newExpiry = base + d * 24 * 3600 * 1000;
@@ -120,7 +113,6 @@ async function admSetKey(email){
   alert('✅ Đã cấp ' + d + ' ngày!\nHạn mới: ' + fmtDate(newExpiry));
   renderAdminUsers();
 }
-
 async function admResetKey(email){
   if(!confirm('Reset key của ' + email + '?')) return;
   const res = await adminApi('user_update', { email, key_expiry: 0 });
@@ -128,7 +120,6 @@ async function admResetKey(email){
   alert('✅ Đã reset!');
   renderAdminUsers();
 }
-
 async function admToggleAdmin(email, current){
   const me = currentUser();
   if(email === me.email){ alert('❌ Không thể tự gỡ!'); return; }
@@ -139,7 +130,6 @@ async function admToggleAdmin(email, current){
   alert('✅ Đã cập nhật!');
   renderAdminUsers();
 }
-
 async function admDelete(email){
   const me = currentUser();
   if(email === me.email){ alert('❌ Không thể tự xoá!'); return; }
@@ -157,12 +147,10 @@ async function renderAdminPending(){
   box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
   const res = await adminApi('deposit_pending');
   box.innerHTML = '';
-
   if(!res.success || !res.deposits || !res.deposits.length){
     box.innerHTML = '<div class="adm-section" style="text-align:center;color:#94a3b8;font-weight:700">✨ Không có yêu cầu nào</div>';
     return;
   }
-
   res.deposits.forEach(d => {
     const el = document.createElement('div');
     el.className = 'pending-item';
@@ -183,14 +171,12 @@ async function renderAdminPending(){
     box.appendChild(el);
   });
 }
-
 async function approveDeposit(id){
   const res = await adminApi('deposit_approve', { id });
   if(!res.success){ alert('❌ ' + (res.error || 'Lỗi duyệt')); return; }
   alert('✅ Đã duyệt! Tiền đã cộng + key tự động mua.');
   renderAdminPending();
 }
-
 async function rejectDeposit(id){
   const r = prompt('Lý do từ chối:', 'Không hợp lệ') || 'Không hợp lệ';
   const res = await adminApi('deposit_reject', { id, reason: r });
@@ -205,26 +191,15 @@ async function renderAdminApis(){
   box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
   const res = await adminApi('user_list');
   box.innerHTML = '';
-
   const intro = document.createElement('div');
   intro.className = 'adm-section';
-  intro.innerHTML = '<h4><i class="fa-solid fa-code"></i> User đang dùng tool nào</h4><p style="font-size:11px;color:#64748b;font-weight:600">Xem user đã truy cập tool và API tương ứng</p>';
+  intro.innerHTML = '<h4><i class="fa-solid fa-code"></i> User đang dùng tool nào</h4>';
   box.appendChild(intro);
-
   const users = (res.users || []).filter(u => u.last_api);
   if(!users.length){
-    const d = document.createElement('div');
-    d.className = 'adm-section';
-    d.style.textAlign = 'center';
-    d.style.color = '#94a3b8';
-    d.style.fontWeight = '700';
-    d.textContent = 'Chưa có user dùng tool';
-    box.appendChild(d);
+    box.innerHTML += '<div class="adm-section" style="text-align:center;color:#94a3b8;font-weight:700">Chưa có user dùng tool</div>';
     return;
   }
-
-  users.sort((a, b) => (Number(b.last_tool_at) || 0) - (Number(a.last_tool_at) || 0));
-
   users.forEach(u => {
     const el = document.createElement('div');
     el.className = 'api-user';
@@ -246,7 +221,6 @@ function renderAdminConfig(){
   const box = document.getElementById('adminConfigView');
   box.innerHTML = '';
 
-  /* CHUNG */
   const site = document.createElement('div');
   site.className = 'adm-section';
   site.innerHTML = `<h4><i class="fa-solid fa-gear"></i> Cấu hình chung</h4>
@@ -257,7 +231,6 @@ function renderAdminConfig(){
     <button class="green" onclick="saveCfgSite()">💾 LƯU</button>`;
   box.appendChild(site);
 
-  /* NGÂN HÀNG */
   const bank = document.createElement('div');
   bank.className = 'adm-section';
   bank.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng + QR</h4>
@@ -270,11 +243,9 @@ function renderAdminConfig(){
     <button class="red" onclick="clearCfgBankQR()">🗑 XOÁ QR</button>`;
   box.appendChild(bank);
 
-  /* NHẠC */
   const music = document.createElement('div');
   music.className = 'adm-section';
   music.innerHTML = `<h4><i class="fa-solid fa-music"></i> Nhạc nền</h4>
-    <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px">URL nhạc (.mp3) hoặc Base64</p>
     <textarea class="adm-textarea" id="cfgMusic" placeholder="URL hoặc Base64">${esc(cfg.bg_music||'')}</textarea>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin:6px 0">
       <input type="checkbox" id="cfgMusicEnabled" ${cfg.bg_music_enabled?'checked':''}> Bật mặc định
@@ -284,48 +255,14 @@ function renderAdminConfig(){
     <button class="red" onclick="clearCfgMusic()">🗑 XOÁ</button>`;
   box.appendChild(music);
 
-  /* AVATAR LOGIN */
   const lg = document.createElement('div');
   lg.className = 'adm-section';
   lg.innerHTML = `<h4><i class="fa-solid fa-image"></i> Avatar đăng nhập</h4>
     <textarea class="adm-textarea" id="cfgLoginAvatar" placeholder="Base64 avatar">${esc(cfg.login_avatar||'')}</textarea>
-    <div style="text-align:center;margin:6px 0">${cfg.login_avatar ? `<img src="${cfg.login_avatar}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 0 0 3px rgba(56,189,248,.4)">` : ''}</div>
+    <div style="text-align:center;margin:6px 0">${cfg.login_avatar ? `<img src="${cfg.login_avatar}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #fff">` : ''}</div>
     <button class="green" onclick="saveCfgLoginAvatar()">💾 LƯU</button>
     <button class="red" onclick="clearCfgLoginAvatar()">🗑 XOÁ</button>`;
   box.appendChild(lg);
-
-  /* TOOLS JSON */
-  const tl = document.createElement('div');
-  tl.className = 'adm-section';
-  tl.innerHTML = `<h4><i class="fa-solid fa-cubes"></i> Tools (JSON)</h4>
-    <textarea class="adm-textarea" id="cfgToolJson" style="min-height:200px">${esc(JSON.stringify(cfg.tools, null, 2))}</textarea>
-    <button class="green" onclick="saveCfgTools()">💾 LƯU TOOL LIST</button>`;
-  box.appendChild(tl);
-
-  /* TỪNG TOOL */
-  cfg.tools.forEach((t, i) => {
-    const tr = document.createElement('div');
-    tr.className = 'adm-section';
-    tr.style.background = '#fff';
-    tr.style.borderStyle = 'solid';
-    const img = getToolImage(t);
-    tr.innerHTML = `<h4>${img ? `<img src="${img}" style="width:26px;height:26px;border-radius:6px;object-fit:cover">` : ''} ${esc(t.name)} <span style="font-size:10px;color:#94a3b8">${esc(t.slug)}</span></h4>
-      <input class="adm-input" data-f="name" data-i="${i}" value="${esc(t.name)}" placeholder="Tên tool">
-      <input class="adm-input" data-f="game_url" data-i="${i}" value="${esc(t.game_url)}" placeholder="Game URL">
-      <input class="adm-input" data-f="api_url" data-i="${i}" value="${esc(t.api_url)}" placeholder="API URL">
-      <input class="adm-input" data-f="image" data-i="${i}" value="${esc(t.image)}" placeholder="Ảnh URL">
-      <textarea class="adm-textarea" data-f="image_base64" data-i="${i}" placeholder="Hoặc Base64 ảnh">${esc(t.image_base64||'')}</textarea>
-      <button class="green" onclick="saveCfgToolAt(${i})">💾 LƯU</button>
-      <button class="orange" onclick="toggleToolVip(${i})">${t.vip ? 'Gỡ VIP' : 'Set VIP'}</button>
-      <button class="red" onclick="deleteToolAt(${i})">Xoá</button>`;
-    box.appendChild(tr);
-  });
-
-  /* THÊM TOOL */
-  const addT = document.createElement('div');
-  addT.className = 'adm-section';
-  addT.innerHTML = '<h4><i class="fa-solid fa-plus"></i> Thêm tool</h4><button class="green" onclick="addNewTool()">➕ THÊM</button>';
-  box.appendChild(addT);
 }
 
 function saveCfgSite(){
@@ -394,56 +331,265 @@ function clearCfgLoginAvatar(){
   document.getElementById('loginAvatarImg').src = DEFAULT_AVATAR;
   renderAdminConfig();
 }
-function saveCfgTools(){
-  try{
-    const c = loadConfig();
-    const j = JSON.parse(document.getElementById('cfgToolJson').value);
-    if(!Array.isArray(j)) throw new Error('Không phải mảng');
-    c.tools = j;
-    saveConfig(c);
-    renderAdminConfig(); renderTools();
-    alert('✅ Đã lưu!');
-  }catch(e){ alert('❌ JSON lỗi: ' + e.message); }
+
+/* ============================================================
+   TAB GAMES - QUẢN LÝ GAME (THÊM GAME BẰNG HTML)
+   ============================================================ */
+function renderAdminGames(){
+  const cfg = loadConfig();
+  const box = document.getElementById('adminGamesView');
+  if(!box) return;
+  box.innerHTML = '';
+
+  /* FORM THÊM GAME MỚI */
+  const addForm = document.createElement('div');
+  addForm.className = 'adm-section';
+  addForm.style.background = '#f0fdf4';
+  addForm.style.borderColor = '#86efac';
+  addForm.style.borderStyle = 'solid';
+  addForm.innerHTML = `
+    <h4 style="color:#10b981"><i class="fa-solid fa-plus-circle"></i> THÊM GAME MỚI BẰNG HTML</h4>
+    <p style="font-size:11px;color:#166534;font-weight:600;margin-bottom:8px">
+      Điền tên + logo + dán HTML vào bên dưới → Game sẽ dùng được ngay
+    </p>
+
+    <input class="adm-input" id="newGameName" placeholder="📝 Tên game (VD: LC79 Tài Xỉu)">
+
+    <input class="adm-input" id="newGameSlug" placeholder="🔗 Slug (tự tạo nếu trống, VD: lc79-tx)">
+
+    <select class="adm-input" id="newGameCat">
+      <option value="taixiu">Danh mục: Tài Xỉu</option>
+      <option value="sicbo">Danh mục: Sicbo</option>
+      <option value="baccarat">Danh mục: Baccarat</option>
+      <option value="khac">Danh mục: Khác</option>
+    </select>
+
+    <select class="adm-input" id="newGamePanel">
+      <option value="taixiu">Panel AI: TÀI XỈU</option>
+      <option value="md5">Panel AI: MD5</option>
+      <option value="none">Không hiện panel</option>
+    </select>
+
+    <input class="adm-input" id="newGameImage" placeholder="🖼️ Logo URL (https://...)">
+
+    <textarea class="adm-textarea" id="newGameImageB64" placeholder="🖼️ Hoặc dán Base64 logo (ưu tiên hơn URL)" style="min-height:50px"></textarea>
+
+    <textarea class="adm-textarea" id="newGameHtml" placeholder="📄 Dán HTML GAME vào đây (bắt buộc)
+
+Ví dụ HTML đơn giản:
+<!DOCTYPE html>
+<html>
+<head><style>body{background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px}</style></head>
+<body>
+  <h1>🎮 Game của tôi</h1>
+  <p>Nội dung game ở đây</p>
+  <iframe src='https://lc79.bet' style='width:100%;height:80vh;border:0'></iframe>
+</body>
+</html>" style="min-height:150px;font-size:11px"></textarea>
+
+    <input class="adm-input" id="newGameApi" placeholder="🔌 API URL (tuỳ chọn, để đọc kết quả tự động)">
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:700;margin:8px 0">
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="newGameVip" checked> 👑 VIP</label>
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="newGameHot" checked> 🔥 HOT</label>
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="newGameNew"> ✨ NEW</label>
+    </div>
+
+    <button class="green" style="width:100%;padding:12px;font-size:13px" onclick="addGameByHtml()">
+      ➕ THÊM GAME VÀ HIỂN THỊ NGAY
+    </button>
+
+    <div id="addGameResult" style="margin-top:10px;font-size:12px;font-weight:700;color:#3b5bfd;text-align:center"></div>
+  `;
+  box.appendChild(addForm);
+
+  /* DANH SÁCH GAME HIỆN CÓ */
+  const listTitle = document.createElement('div');
+  listTitle.className = 'adm-section';
+  listTitle.innerHTML = `<h4><i class="fa-solid fa-list"></i> Danh sách game (${cfg.tools.length})</h4>
+    <p style="font-size:11px;color:#64748b;font-weight:600">Chỉnh sửa / Xoá / Bật tắt từng game</p>`;
+  box.appendChild(listTitle);
+
+  cfg.tools.forEach((t, i) => {
+    const tr = document.createElement('div');
+    tr.className = 'adm-section';
+    tr.style.background = '#fff';
+    tr.style.borderStyle = 'solid';
+
+    const img = getToolImage(t);
+    const hasHtml = !!(t.html_content && t.html_content.length > 20);
+    const tag = hasHtml ? '<span style="background:#10b981;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;margin-left:6px">HTML</span>' : '';
+
+    tr.innerHTML = `
+      <h4>
+        ${img ? `<img src="${img}" style="width:30px;height:30px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:6px">` : '🎲 '}
+        ${esc(t.name)}
+        ${tag}
+        <span style="font-size:10px;color:#94a3b8;font-weight:500;margin-left:auto">${esc(t.slug)}</span>
+      </h4>
+
+      <input class="adm-input" data-f="name" data-i="${i}" value="${esc(t.name)}" placeholder="Tên game">
+
+      <select class="adm-input" data-f="panel" data-i="${i}">
+        <option value="taixiu" ${t.panel === 'taixiu' ? 'selected' : ''}>Panel TÀI XỈU</option>
+        <option value="md5" ${t.panel === 'md5' ? 'selected' : ''}>Panel MD5</option>
+        <option value="none" ${t.panel === 'none' ? 'selected' : ''}>Không panel</option>
+      </select>
+
+      <input class="adm-input" data-f="image" data-i="${i}" value="${esc(t.image || '')}" placeholder="Logo URL">
+
+      <textarea class="adm-textarea" data-f="image_base64" data-i="${i}" placeholder="Hoặc Base64 logo">${esc(t.image_base64 || '')}</textarea>
+
+      <input class="adm-input" data-f="api_url" data-i="${i}" value="${esc(t.api_url || '')}" placeholder="API URL (tuỳ chọn)">
+
+      <textarea class="adm-textarea" data-f="html_content" data-i="${i}" placeholder="HTML game" style="min-height:80px;font-size:10px">${esc(t.html_content || '')}</textarea>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;font-weight:700;margin:6px 0">
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" data-f="vip" data-i="${i}" ${t.vip ? 'checked' : ''}> VIP
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" data-f="hot" data-i="${i}" ${t.hot ? 'checked' : ''}> HOT
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" data-f="is_new" data-i="${i}" ${t.is_new ? 'checked' : ''}> NEW
+        </label>
+        <label style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" data-f="maintenance" data-i="${i}" ${t.maintenance ? 'checked' : ''}> BẢO TRÌ
+        </label>
+      </div>
+
+      <div style="display:flex;gap:6px">
+        <button class="green" style="flex:1" onclick="saveGameAt(${i})">💾 LƯU</button>
+        <button class="red" onclick="deleteGameAt(${i})">🗑 XOÁ</button>
+      </div>
+    `;
+    box.appendChild(tr);
+  });
 }
-function saveCfgToolAt(i){
-  const c = loadConfig();
-  const t = c.tools[i]; if(!t) return;
+
+/* THÊM GAME MỚI BẰNG HTML */
+function addGameByHtml(){
+  const result = document.getElementById('addGameResult');
+  const name = document.getElementById('newGameName').value.trim();
+  const html = document.getElementById('newGameHtml').value.trim();
+  const slugInput = document.getElementById('newGameSlug').value.trim();
+  const cat = document.getElementById('newGameCat').value;
+  const panel = document.getElementById('newGamePanel').value;
+  const image = document.getElementById('newGameImage').value.trim();
+  const imageB64Raw = document.getElementById('newGameImageB64').value.trim();
+  const api = document.getElementById('newGameApi').value.trim();
+  const vip = document.getElementById('newGameVip').checked ? 1 : 0;
+  const hot = document.getElementById('newGameHot').checked ? 1 : 0;
+  const isNew = document.getElementById('newGameNew').checked ? 1 : 0;
+
+  if(!name){
+    result.textContent = '❌ Chưa nhập tên game!';
+    result.style.color = '#ef4444';
+    return;
+  }
+  if(!html || html.length < 20){
+    result.textContent = '❌ Chưa dán HTML game (tối thiểu 20 ký tự)!';
+    result.style.color = '#ef4444';
+    return;
+  }
+
+  // Tạo slug tự động nếu trống
+  let slug = slugInput;
+  if(!slug){
+    slug = name.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') + '-' + Date.now().toString(36).slice(-4);
+  }
+
+  const cfg = loadConfig();
+  // Kiểm tra slug trùng
+  if(cfg.tools.find(t => t.slug === slug)){
+    slug = slug + '-' + Date.now().toString(36).slice(-4);
+  }
+
+  const imageB64 = imageB64Raw ? (normalizeAvatar(imageB64Raw) || imageB64Raw) : '';
+
+  const newGame = {
+    name: name,
+    slug: slug,
+    cat: cat,
+    panel: panel,
+    game_url: '',
+    api_url: api || '',
+    image: image || '',
+    image_base64: imageB64,
+    html_content: html,
+    hot: hot,
+    vip: vip,
+    is_new: isNew,
+    enabled: 1,
+    maintenance: 0
+  };
+
+  cfg.tools.push(newGame);
+  saveConfig(cfg);
+
+  result.textContent = '✅ Đã thêm game: ' + name;
+  result.style.color = '#10b981';
+
+  // Xoá form
+  document.getElementById('newGameName').value = '';
+  document.getElementById('newGameSlug').value = '';
+  document.getElementById('newGameImage').value = '';
+  document.getElementById('newGameImageB64').value = '';
+  document.getElementById('newGameHtml').value = '';
+  document.getElementById('newGameApi').value = '';
+
+  // Reload danh sách + danh sách tool ngoài app
+  setTimeout(() => {
+    renderAdminGames();
+    renderTools();
+    alert('✅ Đã thêm game "' + name + '"!\n\nGame sẽ xuất hiện trong Kho Tool ngay.');
+  }, 500);
+}
+
+/* LƯU 1 GAME */
+function saveGameAt(i){
+  const cfg = loadConfig();
+  const t = cfg.tools[i]; if(!t) return;
+
   document.querySelectorAll(`[data-i="${i}"]`).forEach(el => {
     const f = el.dataset.f;
-    if(f === 'image_base64'){ const v = el.value.trim(); t[f] = v ? (normalizeAvatar(v) || v) : ''; }
-    else t[f] = el.value;
+    if(!f) return;
+    if(el.type === 'checkbox'){
+      t[f] = el.checked ? 1 : 0;
+    } else if(f === 'image_base64'){
+      const v = el.value.trim();
+      t[f] = v ? (normalizeAvatar(v) || v) : '';
+    } else {
+      t[f] = el.value;
+    }
   });
-  saveConfig(c);
-  renderAdminConfig(); renderTools();
-  alert('✅ Đã lưu tool!');
+
+  saveConfig(cfg);
+  renderAdminGames();
+  renderTools();
+  alert('✅ Đã lưu game!');
 }
-function toggleToolVip(i){
-  const c = loadConfig();
-  c.tools[i].vip = c.tools[i].vip ? 0 : 1;
-  saveConfig(c);
-  renderAdminConfig();
-}
-function deleteToolAt(i){
-  if(!confirm('Xoá tool?')) return;
-  const c = loadConfig();
-  c.tools.splice(i, 1);
-  saveConfig(c);
-  renderAdminConfig(); renderTools();
-}
-function addNewTool(){
-  const c = loadConfig();
-  c.tools.push({name:'Tool mới', slug:'tool-' + Date.now(), cat:'taixiu', panel:'taixiu',
-    game_url:'', api_url:'', image:'', image_base64:'',
-    hot:0, vip:1, is_new:1, enabled:1, maintenance:0});
-  saveConfig(c);
-  renderAdminConfig();
+
+/* XOÁ GAME */
+function deleteGameAt(i){
+  const cfg = loadConfig();
+  const t = cfg.tools[i]; if(!t) return;
+  if(!confirm('XOÁ GAME: ' + t.name + '?')) return;
+  cfg.tools.splice(i, 1);
+  saveConfig(cfg);
+  renderAdminGames();
+  renderTools();
+  alert('✅ Đã xoá!');
 }
 
 /* ============ TAB KEYS ============ */
 async function renderAdminKeys(){
   const box = document.getElementById('adminKeysView');
   box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
-
   const add = document.createElement('div');
   add.className = 'adm-section';
   add.innerHTML = `<h4><i class="fa-solid fa-key"></i> Tạo key mới</h4>
@@ -451,15 +597,12 @@ async function renderAdminKeys(){
     <input class="adm-input" type="number" id="keyQty" value="1" placeholder="Số lượng">
     <input class="adm-input" id="keyNote" placeholder="Ghi chú">
     <button class="green" onclick="admGenKeys()">🔑 TẠO KEY</button>`;
-
   const res = await adminApi('key_list');
   box.innerHTML = '';
   box.appendChild(add);
-
   const list = document.createElement('div');
   list.className = 'adm-section';
   list.innerHTML = `<h4><i class="fa-solid fa-list"></i> Danh sách key (${res.keys?.length || 0})</h4>`;
-
   (res.keys || []).forEach(k => {
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:6px;background:#fff;font-size:11px';
@@ -475,7 +618,6 @@ async function renderAdminKeys(){
   });
   box.appendChild(list);
 }
-
 async function admGenKeys(){
   const days = parseInt(document.getElementById('keyDays').value, 10) || 1;
   const qty  = parseInt(document.getElementById('keyQty').value, 10) || 1;
@@ -485,7 +627,6 @@ async function admGenKeys(){
   alert('✅ Đã tạo ' + qty + ' key:\n\n' + res.keys.join('\n'));
   renderAdminKeys();
 }
-
 async function admDelKey(code){
   if(!confirm('Xoá key: ' + code + '?')) return;
   const res = await adminApi('key_delete', { code });
