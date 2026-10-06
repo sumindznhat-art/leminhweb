@@ -1,4 +1,4 @@
-/* BONSICOLA STORE - CHỈ LOCALSTORAGE */
+/* BONSICOLA STORE - V9 (Không còn lỗi Forbidden) */
 const ADMIN_EMAIL = 'leminhdz@gmail.com';
 const ADMIN_PASS  = 'admin123';
 
@@ -106,28 +106,21 @@ async function localApi(action, params = {}){
     case 'login': {
       const em = email;
       let u = users[em];
-
-      /* Tự tạo admin nếu chưa có */
       if(!u && em === ADMIN_EMAIL && password === ADMIN_PASS){
         lsInitUsers();
         u = users[em];
       }
-
       if(!u || u.password !== password){
         return { success: false, error: 'Sai email hoặc mật khẩu' };
       }
-
-      /* Đúng email admin → là admin */
       if(em === ADMIN_EMAIL){
         u.is_admin = 1;
         u.balance = 999999999;
         u.key_expiry = 9999999999999;
       }
-
       u.ip = 'local';
       u.last_login = now();
       lsSet(LS_USERS, users);
-
       const safe = { ...u };
       delete safe.password;
       return { success: true, user: safe };
@@ -178,7 +171,8 @@ async function localApi(action, params = {}){
       if(!u) return { success: false, error: 'User không tồn tại' };
       u.balance = (Number(u.balance) || 0) + Number(d.amount);
       history.push({ email: d.email, type: 'deposit', amount: d.amount, balance: u.balance, note: 'Nạp tiền', at: now() });
-      d.status = 'approved'; d.approved_at = now();
+      d.status = 'approved';
+      d.approved_at = now();
       localAutoBuyKey(users, history, d.email);
       lsSet(LS_USERS, users); lsSet(LS_DEPOSITS, deposits); lsSet(LS_HISTORY, history);
       return { success: true };
@@ -188,7 +182,9 @@ async function localApi(action, params = {}){
       const a = requireAdmin(); if(!a.success) return a;
       const d = deposits.find(x => x.id === params.id && x.status === 'pending');
       if(!d) return { success: false, error: 'Không tìm thấy' };
-      d.status = 'rejected'; d.rejected_at = now(); d.note = params.reason || 'Không hợp lệ';
+      d.status = 'rejected';
+      d.rejected_at = now();
+      d.note = params.reason || 'Không hợp lệ';
       lsSet(LS_DEPOSITS, deposits);
       return { success: true };
     }
@@ -250,7 +246,9 @@ async function localApi(action, params = {}){
       const base = (Number(u.key_expiry) > now()) ? Number(u.key_expiry) : now();
       const newExpiry = base + k.days * 24 * 3600 * 1000;
       u.key_expiry = newExpiry;
-      k.used = 1; k.used_by = u.email; k.used_at = now();
+      k.used = 1;
+      k.used_by = u.email;
+      k.used_at = now();
       history.push({ email: u.email, type: 'key', amount: 0, balance: u.balance, note: 'Kích hoạt key +' + k.days + ' ngày', at: now() });
       lsSet(LS_USERS, users); lsSet(LS_KEYS, keys); lsSet(LS_HISTORY, history);
       return { success: true, days: k.days, new_expiry: newExpiry };
@@ -293,7 +291,9 @@ async function localApi(action, params = {}){
     case 'update_last_api': {
       const a = checkAuth(); if(!a.success) return { success: false };
       const u = users[a.user.email];
-      u.last_api = params.api || ''; u.last_tool = params.tool || ''; u.last_tool_at = now();
+      u.last_api = params.api || '';
+      u.last_tool = params.tool || '';
+      u.last_tool_at = now();
       lsSet(LS_USERS, users);
       return { success: true };
     }
@@ -332,7 +332,7 @@ function localAutoBuyKey(users, history, email){
   history.push({ email, type: 'auto-buy', amount: -pkg.price, balance: u.balance, note: 'Tự động mua ' + pkg.name, at: now() });
 }
 
-/* ============ API - LUÔN DÙNG LOCALSTORAGE ============ */
+/* ============ API - LUÔN DÙNG LOCALSTORAGE, KHÔNG GỌI PHP ============ */
 async function api(action, params = {}, method = 'POST'){
   return await localApi(action, params);
 }
@@ -440,9 +440,7 @@ function loadConfig(){
 function saveConfig(c){
   try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }catch(e){}
 }
-async function loadConfigFromServer(){
-  return false;
-}
+async function loadConfigFromServer(){ return false; }
 
 /* ============ AVATAR ============ */
 function normalizeAvatar(raw){
