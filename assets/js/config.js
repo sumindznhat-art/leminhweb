@@ -15,7 +15,7 @@
    ============================================================ */
 window.CLOUD_CONFIG = {
   gist_id: "$2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm",            // ← $2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm
-  token: "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",              // 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
+  token: "2b4ced53dc9e6a0425fb2c094eb8a9ac.js",              // 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
   enabled: true,         // ← ĐỔI THÀNH true sau khi dán
   poll_interval: 5000     // 5 giây (test nhanh). Sau đổi thành 15000
 };
