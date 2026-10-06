@@ -1,55 +1,81 @@
 /* ============================================================
-   APP.JS - BONSICOLA (Chạy được cả Vercel + PHP)
-   Tự động tạo admin khi chạy lần đầu → vào ngay không cần server
+   APP.JS - BONSICOLA (Fix lỗi admin - Auto force)
+   Chạy được cả Vercel + PHP
    ============================================================ */
 
+const ADMIN_EMAIL = 'leminhdz@gmail.com';
+const ADMIN_PASS  = 'admin123';
+const LS_USERS    = 'bonsicola_ls_users';
+
 /* ============================================================
-   TỰ ĐỘNG TẠO ADMIN KHI CHẠY LẦN ĐẦU (Vercel mode)
+   AUTO INIT ADMIN - CHẠY NGAY KHI LOAD SCRIPT
+   Force tạo/sửa admin trong localStorage để đảm bảo is_admin = 1
    ============================================================ */
-(function autoInitAdmin(){
+(function autoForceAdmin(){
   try{
-    const LS_USERS = 'bonsicola_ls_users';
-    const ADMIN_EMAIL = 'leminhdz@gmail.com';
-    const ADMIN_PASS = 'admin123';
-    
     let users = null;
     try{ users = JSON.parse(localStorage.getItem(LS_USERS) || 'null'); }catch(e){}
-    
-    // Nếu chưa có users hoặc chưa có admin → tạo mới
-    if(!users || !users[ADMIN_EMAIL]){
-      users = users || {};
+    if(!users) users = {};
+
+    const existing = users[ADMIN_EMAIL];
+    const nowMs = Date.now();
+
+    // Nếu chưa có HOẶC có nhưng is_admin != 1 → force tạo/sửa
+    if(!existing || Number(existing.is_admin) !== 1){
       users[ADMIN_EMAIL] = {
-        id: 1,
+        id: existing?.id || 1,
         email: ADMIN_EMAIL,
         password: ADMIN_PASS,
-        name: 'Admin BONSICOLA',
-        balance: 999999999,
-        key_expiry: 9999999999999,
+        name: existing?.name || 'Admin BONSICOLA',
+        balance: existing?.balance || 999999999,
+        key_expiry: existing?.key_expiry || 9999999999999,
         is_admin: 1,
-        ip: 'local',
-        last_login: Date.now(),
-        created_at: Date.now(),
-        last_api: '',
-        last_tool: '',
-        last_tool_at: 0
+        ip: existing?.ip || 'local',
+        last_login: existing?.last_login || nowMs,
+        created_at: existing?.created_at || nowMs,
+        last_api: existing?.last_api || '',
+        last_tool: existing?.last_tool || '',
+        last_tool_at: existing?.last_tool_at || 0
       };
       localStorage.setItem(LS_USERS, JSON.stringify(users));
-      console.log('[AUTO] ✅ Đã tạo admin mặc định:', ADMIN_EMAIL);
+      console.log('[FORCE] ✅ Đã force admin is_admin=1:', ADMIN_EMAIL);
     } else {
-      console.log('[AUTO] ✅ Admin đã tồn tại:', ADMIN_EMAIL);
+      console.log('[FORCE] ✅ Admin đã OK:', ADMIN_EMAIL);
     }
   }catch(e){
-    console.warn('[AUTO] Không tạo được admin:', e);
+    console.warn('[FORCE] Lỗi:', e);
   }
 })();
 
 /* ============================================================
-   CHECK ADMIN
+   FIX SESSION - Nếu session có email admin thì force is_admin=1
+   ============================================================ */
+(function fixSession(){
+  try{
+    const raw = localStorage.getItem('bonsicola_session');
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(!s || !s.user) return;
+    
+    if(s.user.email === ADMIN_EMAIL && Number(s.user.is_admin) !== 1){
+      s.user.is_admin = 1;
+      localStorage.setItem('bonsicola_session', JSON.stringify(s));
+      console.log('[FIX] ✅ Đã fix session admin: is_admin=1');
+    }
+  }catch(e){
+    console.warn('[FIX] Lỗi session:', e);
+  }
+})();
+
+/* ============================================================
+   CHECK ADMIN (chấp nhận cả number, string, boolean)
    ============================================================ */
 function isRealAdmin(u){
   if(!u) return false;
-  // Admin khi có cờ is_admin từ server HOẶC email admin + đã login đúng
-  if(u.is_admin === 1 || u.is_admin === true) return true;
+  const v = u.is_admin;
+  if(v === 1 || v === true || v === '1') return true;
+  // Nếu là email admin VÀ đã login thành công → cũng cho admin
+  if(u.email === ADMIN_EMAIL && u.password === ADMIN_PASS) return true;
   return false;
 }
 window.isRealAdmin = isRealAdmin;
@@ -95,13 +121,8 @@ function stopMusic(){
 }
 
 function toggleMusic(){
-  if(_musicPlaying){ 
-    stopMusic(); 
-    localStorage.setItem(MUSIC_ON_KEY, '0'); 
-  } else { 
-    playMusic(); 
-    localStorage.setItem(MUSIC_ON_KEY, '1'); 
-  }
+  if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY, '0'); }
+  else { playMusic(); localStorage.setItem(MUSIC_ON_KEY, '1'); }
 }
 
 function updateMusicBtn(){
@@ -128,7 +149,6 @@ function reloadMusic(){
 (function(){
   const trigger = document.getElementById('avatarTrigger');
   if(!trigger) return;
-  
   const HOLD_MS = 1200;
   let timer = null, holding = false, sx = 0, sy = 0, moved = false;
   const TOL = 12;
@@ -141,17 +161,13 @@ function reloadMusic(){
       openAvatarModal();
     }, HOLD_MS);
   }
-  
   function cancel(){
     holding = false;
     if(timer){ clearTimeout(timer); timer = null; }
   }
-  
   function move(x, y){
     if(!holding) return;
-    if(Math.abs(x - sx) > TOL || Math.abs(y - sy) > TOL){
-      moved = true; cancel();
-    }
+    if(Math.abs(x - sx) > TOL || Math.abs(y - sy) > TOL){ moved = true; cancel(); }
   }
   
   trigger.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
@@ -170,41 +186,29 @@ function openAvatarModal(){
   const inp = document.getElementById('avBase64Input');
   const pv = document.getElementById('avPreview');
   if(!m) return;
-  
   let s = getAvatarFromStorage();
   document.getElementById('avStatus').textContent = '';
   document.getElementById('avModalTitle').textContent = '🎀 Đổi Avatar';
-  
-  if(s){ 
-    pv.innerHTML = `<img src="${s}">`; 
-    inp.value = ''; 
-  } else { 
-    pv.innerHTML = '🎀'; 
-    inp.value = ''; 
-  }
+  if(s){ pv.innerHTML = `<img src="${s}">`; inp.value = ''; }
+  else { pv.innerHTML = '🎀'; inp.value = ''; }
   m.classList.add('show');
 }
-
 function closeAvatarModal(){ 
   const m = document.getElementById('avatarModal');
   if(m) m.classList.remove('show'); 
 }
-
 function saveAvatar(){
   const inp = document.getElementById('avBase64Input');
   const st = document.getElementById('avStatus');
   const pv = document.getElementById('avPreview');
   const val = inp.value.trim();
-  
   if(!val || val.length < 50){ 
     st.style.color = '#ef4444'; 
     st.textContent = '⚠️ Base64 không hợp lệ!'; 
     return; 
   }
-  
   const src = normalizeAvatar(val);
   const img = new Image();
-  
   img.onload = () => {
     setAvatarToStorage(src);
     applyAvatarEverywhere(src);
@@ -213,15 +217,12 @@ function saveAvatar(){
     st.textContent = '✅ Đã lưu avatar!';
     setTimeout(closeAvatarModal, 900);
   };
-  
   img.onerror = () => { 
     st.style.color = '#ef4444'; 
     st.textContent = '❌ Ảnh không load được!'; 
   };
-  
   img.src = src;
 }
-
 function resetAvatar(){
   setAvatarToStorage(null);
   applyAvatarEverywhere(DEFAULT_AVATAR);
@@ -239,16 +240,14 @@ function resetAvatar(){
 function openDrawer(){
   const u = currentUser();
   if(!u) return;
-  
   document.getElementById('drawer').classList.add('show');
   document.getElementById('drawerMask').classList.add('show');
   document.getElementById('drawerName').textContent = u.name || u.email.split('@')[0];
   document.getElementById('drawerEmail').textContent = u.email;
-  
   const avEl = document.getElementById('drawerAvatar');
   if(avEl) avEl.src = getAvatarFromStorage() || DEFAULT_AVATAR;
   
-  // Admin → hiện nút quản trị
+  // Force hiện nút admin nếu là admin
   const diAdmin = document.getElementById('diAdmin');
   if(diAdmin){
     if(isRealAdmin(u)){
@@ -258,7 +257,7 @@ function openDrawer(){
     }
   }
   
-  // Đếm pending cho admin
+  // Đếm pending
   if(isRealAdmin(u)){
     const pb = document.getElementById('pendBadge');
     if(pb){
@@ -271,7 +270,6 @@ function openDrawer(){
     }
   }
 }
-
 function closeDrawer(){
   const d = document.getElementById('drawer');
   const m = document.getElementById('drawerMask');
@@ -286,48 +284,35 @@ async function openHistoryDeposit(){
   closeDrawer();
   const u = currentUser();
   if(!u) return;
-  
   document.getElementById('histTitle').textContent = '💰 Lịch sử nạp tiền';
   const box = document.getElementById('histContent');
   box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
   document.getElementById('historyModal').classList.add('show');
-
   const res = await apiHistory();
   box.innerHTML = '';
-  
   if(!res || !res.success){
-    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi tải dữ liệu') + '</div>';
+    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi tải') + '</div>';
     return;
   }
-  
   const list = (res.history || []).filter(h => 
     h.type === 'deposit' || h.type === 'admin' || h.type === 'buy' || h.type === 'auto-buy'
   );
-  
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có giao dịch</div>';
     return;
   }
-  
   list.forEach(h => {
     const el = document.createElement('div');
-    el.className = 'info-row';
-    el.style.margin = '0 0 8px';
+    el.className = 'info-row'; el.style.margin = '0 0 8px';
     const amount = Number(h.amount) || 0;
     const color = amount > 0 ? '#10b981' : '#ef4444';
     const label = h.type === 'deposit' ? 'Nạp tiền'
                 : h.type === 'admin'   ? 'Admin điều chỉnh'
-                : h.type === 'auto-buy'? 'Tự động mua VIP'
-                : 'Mua VIP';
-    el.innerHTML = `
-      <div>
-        <div class="lbl">${label}</div>
-        <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="val" style="color:${color}">${amount > 0 ? '+' : ''}${fmt(amount)}</div>
-        <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div>
-      </div>`;
+                : h.type === 'auto-buy'? 'Tự động mua VIP' : 'Mua VIP';
+    el.innerHTML = `<div><div class="lbl">${label}</div>
+      <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+      <div style="text-align:right"><div class="val" style="color:${color}">${amount > 0 ? '+' : ''}${fmt(amount)}</div>
+      <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div></div>`;
     box.appendChild(el);
   });
 }
@@ -336,39 +321,27 @@ async function openHistoryKey(){
   closeDrawer();
   const u = currentUser();
   if(!u) return;
-  
   document.getElementById('histTitle').textContent = '🔑 Lịch sử key';
   const box = document.getElementById('histContent');
   box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
   document.getElementById('historyModal').classList.add('show');
-
   const res = await apiHistory();
   box.innerHTML = '';
-  
   if(!res || !res.success){
-    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi tải dữ liệu') + '</div>';
+    box.innerHTML = '<div style="text-align:center;color:#ef4444;font-weight:700;padding:20px">❌ ' + esc(res?.error || 'Lỗi tải') + '</div>';
     return;
   }
-  
   const list = (res.history || []).filter(h => h.type === 'key');
-  
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có key</div>';
     return;
   }
-  
   list.forEach(h => {
     const el = document.createElement('div');
-    el.className = 'info-row';
-    el.style.margin = '0 0 8px';
-    el.innerHTML = `
-      <div>
-        <div class="lbl">Kích hoạt key</div>
-        <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="val" style="color:#10b981">${esc(h.note || '')}</div>
-      </div>`;
+    el.className = 'info-row'; el.style.margin = '0 0 8px';
+    el.innerHTML = `<div><div class="lbl">Kích hoạt key</div>
+      <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+      <div style="text-align:right"><div class="val" style="color:#10b981">${esc(h.note || '')}</div></div>`;
     box.appendChild(el);
   });
 }
@@ -379,16 +352,12 @@ async function openHistoryKey(){
 function showPage(name){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  
   const page = document.getElementById('page-' + name);
   if(page) page.classList.add('active');
-  
   const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
   if(nav) nav.classList.add('active');
-  
   const content = document.getElementById('appContent');
   if(content) content.scrollTop = 0;
-  
   if(name === 'deposit') renderDeposit();
   if(name === 'vip')     renderVIPPage();
   if(name === 'profile') renderProfile();
@@ -400,10 +369,8 @@ function renderHome(){
   const u = currentUser();
   if(!u) return;
   const cfg = loadConfig();
-  
   const el1 = document.getElementById('toolCount');
   const el2 = document.getElementById('curBalance');
-  
   if(el1) el1.textContent = (cfg.tools || []).filter(t => t.enabled).length;
   if(el2) el2.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
 }
@@ -415,7 +382,6 @@ let clockStarted = false;
 function startClock(){
   if(clockStarted) return;
   clockStarted = true;
-  
   function tick(){
     const d = new Date();
     const p = n => String(n).padStart(2, '0');
@@ -424,7 +390,6 @@ function startClock(){
     if(clock) clock.textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
     if(date)  date.textContent  = `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;
   }
-  
   tick();
   setInterval(tick, 1000);
 }
@@ -439,11 +404,9 @@ function renderTools(){
   const u = currentUser();
   const isVIP = u && userIsVIP(u);
   const tools = cfg.tools || [];
-  
   const cats = ['all', ...new Set(tools.map(t => t.cat))];
   const names = { all: 'Tất cả', taixiu: 'Tài Xỉu', sicbo: 'Sicbo', baccarat: 'Baccarat', khac: 'Khác' };
   const ct = document.getElementById('catTabs');
-  
   if(ct){
     ct.innerHTML = '';
     cats.forEach(c => {
@@ -454,20 +417,16 @@ function renderTools(){
       ct.appendChild(b);
     });
   }
-  
   const box = document.getElementById('toolList');
   if(!box) return;
   box.innerHTML = '';
-  
   const list = tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
   const tc = document.getElementById('toolCount');
   if(tc) tc.textContent = tools.filter(t => t.enabled).length;
-  
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có tool nào</div>';
     return;
   }
-  
   list.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tool-card';
@@ -476,7 +435,6 @@ function renderTools(){
     if(t.hot) tags.push('<span class="tool-badge-hot">HOT</span>');
     if(t.is_new) tags.push('<span class="tool-badge-new">NEW</span>');
     if(t.maintenance) tags.push('<span class="tool-badge-hot" style="background:#f1f5f9;color:#64748b;border-color:#cbd5e1">BẢO TRÌ</span>');
-    
     card.innerHTML = `
       <div class="tool-head">
         <div class="tool-logo">${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='🎲'">` : '🎲'}</div>
@@ -496,7 +454,6 @@ function renderTools(){
           <i class="fa-solid ${isVIP ? 'fa-unlock' : 'fa-lock'}"></i> ${isVIP ? 'MỞ TOOL' : 'VIP'}
         </button>
       </div>`;
-    
     card.querySelector('.tool-btn').onclick = () => openToolViewer(t);
     box.appendChild(card);
   });
@@ -508,48 +465,37 @@ function renderTools(){
 function renderVIPPage(){
   const u = currentUser();
   if(!u) return;
-  
   const bal = document.getElementById('vipBalance');
   const exp = document.getElementById('vipExpiry');
-  
   if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
   if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' 
     : (u.key_expiry && Number(u.key_expiry) > now() ? fmtDate(u.key_expiry) : 'Chưa kích hoạt');
-
   const cfg = loadConfig();
   const box = document.getElementById('pkgList');
   if(!box) return;
   box.innerHTML = '';
-  
   (cfg.packages || []).forEach(p => {
     const el = document.createElement('div');
     el.className = 'pkg-card';
     const canBuy = isRealAdmin(u) || Number(u.balance) >= p.price;
-    
     el.innerHTML = `
       <div class="pkg-discount">${esc(p.disc || '')}</div>
       <div class="pkg-head">
         <div class="pkg-ic"><i class="fa-solid fa-crown"></i></div>
-        <div>
-          <div class="pkg-name">${esc(p.name)}</div>
-          <div class="pkg-sub">${esc(p.sub || '')}</div>
-        </div>
+        <div><div class="pkg-name">${esc(p.name)}</div><div class="pkg-sub">${esc(p.sub || '')}</div></div>
       </div>
       <div class="pkg-desc">Sử dụng không giới hạn trong ${p.days} ngày</div>
       <div class="pkg-price-row">
-        <div>
-          <div class="pkg-price-lbl">Giá</div>
+        <div><div class="pkg-price-lbl">Giá</div>
           <div class="pkg-price">${p.price.toLocaleString('vi-VN')}<span class="u">đ</span></div>
         </div>
-        <div style="text-align:right">
-          <div class="pkg-price-lbl">Cũ</div>
+        <div style="text-align:right"><div class="pkg-price-lbl">Cũ</div>
           <div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div>
         </div>
       </div>
       <button class="pkg-buy" ${canBuy ? '' : 'disabled'}>
         ${canBuy ? 'MUA NGAY' : 'KHÔNG ĐỦ TIỀN'}
       </button>`;
-    
     el.querySelector('.pkg-buy').onclick = () => buyPackage(p.id, p.days, p.price, p.name);
     box.appendChild(el);
   });
@@ -558,22 +504,17 @@ function renderVIPPage(){
 async function buyPackage(id, days, price, name){
   const u = currentUser();
   if(!u) return;
-  
   if(Number(u.balance) < price){
     alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance));
     showPage('deposit');
     return;
   }
-  
   if(!confirm('Mua ' + name + ' với giá ' + fmt(price) + '?')) return;
-  
   const res = await apiBuyPackage(id, days, price);
-  
   if(!res || !res.success){
     alert('❌ ' + (res?.error || 'Lỗi mua gói'));
     return;
   }
-  
   await apiGetUser();
   alert('✅ Mua thành công!\nHạn mới: ' + fmtDate(res.new_expiry));
   renderAll();
@@ -586,13 +527,10 @@ async function buyPackage(id, days, price, name){
 function renderDeposit(){
   const u = currentUser();
   if(!u) return;
-  
   const bal = document.getElementById('depBalance');
   if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
-  
   const isVIP = userIsVIP(u);
   const st = document.getElementById('depStatus');
-  
   if(st){
     if(isVIP){
       st.style.color = '#10b981';
@@ -602,21 +540,17 @@ function renderDeposit(){
       st.textContent = 'Chưa có key hoặc đã hết hạn';
     }
   }
-  
   const cfg = loadConfig();
   const b = cfg.bank || { name:'', acc:'', holder:'', qr:'' };
   const bi = document.getElementById('bankInfo');
   if(!bi) return;
-  
   bi.innerHTML = `
     <h4><i class="fa-solid fa-building-columns"></i> ${esc(b.name || 'Ngân hàng')}</h4>
     <div class="info-box">
-      <div class="row">
-        <span class="lbl">Số tài khoản</span>
+      <div class="row"><span class="lbl">Số tài khoản</span>
         <span class="val">${esc(b.acc || '—')}</span>
       </div>
-      <div class="row">
-        <span class="lbl">Chủ tài khoản</span>
+      <div class="row"><span class="lbl">Chủ tài khoản</span>
         <span class="val">${esc(b.holder || '—')}</span>
       </div>
     </div>
@@ -635,22 +569,14 @@ function openDepositModal(){
 async function submitDeposit(){
   const u = currentUser();
   if(!u) return;
-  
   const amt = parseInt(document.getElementById('depAmount').value, 10);
   const note = document.getElementById('depNote').value.trim();
-  
-  if(!amt || amt < 10000){ 
-    alert('⚠️ Số tiền tối thiểu 10,000đ!'); 
-    return; 
-  }
-  
+  if(!amt || amt < 10000){ alert('⚠️ Số tiền tối thiểu 10,000đ!'); return; }
   const res = await apiDepositCreate(amt, note);
-  
   if(!res || !res.success){
     alert('❌ ' + (res?.error || 'Lỗi gửi yêu cầu'));
     return;
   }
-  
   document.getElementById('depAmount').value = '';
   document.getElementById('depNote').value = '';
   closeModal('depositModal');
@@ -663,12 +589,10 @@ async function submitDeposit(){
 function renderProfile(){
   const u = currentUser();
   if(!u) return;
-  
   const set = (id, val) => { 
     const el = document.getElementById(id); 
     if(el) el.textContent = val; 
   };
-  
   set('profName', u.name || u.email.split('@')[0]);
   set('profBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   set('profJoined', u.created_at ? fmtDate(u.created_at).split(' ')[0] : '—');
@@ -684,36 +608,28 @@ function renderAll(){
   const u = currentUser();
   if(!u) return;
   const cfg = loadConfig();
-  
   const set = (id, val) => { 
     const el = document.getElementById(id); 
     if(el) el.textContent = val; 
   };
-  
   set('hdrBrand', cfg.site_name || 'BONSICOLA');
   set('marqueeText', cfg.marquee || '');
   set('hdrBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
   set('curBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
-  
   const av = getAvatarFromStorage() || cfg.login_avatar || DEFAULT_AVATAR;
   applyAvatarEverywhere(av);
-  
   if(cfg.login_avatar){
     const el = document.getElementById('loginAvatarImg');
     if(el) el.src = cfg.login_avatar;
   }
-  
   const isVIP = userIsVIP(u);
   set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
   
-  // Hiện nút admin float
+  // ADMIN FLOAT - hiện nếu admin
   const af = document.getElementById('adminFloat');
   if(af){
-    if(isRealAdmin(u)){
-      af.classList.add('show');
-    } else {
-      af.classList.remove('show');
-    }
+    if(isRealAdmin(u)) af.classList.add('show');
+    else af.classList.remove('show');
   }
   
   renderTools();
@@ -735,40 +651,41 @@ window.closeModal = closeModal;
 window.addEventListener('load', async () => {
   console.log('%c=== BONSICOLA TOOL ===', 'background:linear-gradient(135deg,#3b5bfd,#5b7cff);color:#fff;padding:6px 14px;border-radius:6px;font-weight:bold');
   console.log('[API] URL:', window.API_URL || '/api/index.php');
-  console.log('[MODE]', SERVER_AVAILABLE === false ? 'LOCAL' : 'AUTO');
 
-  // Load config
   const cfg = loadConfig();
   const loginName = document.getElementById('loginSiteName');
   if(loginName) loginName.textContent = cfg.site_name || 'BONSICOLA';
-  
   if(cfg.login_avatar){
     const el = document.getElementById('loginAvatarImg');
     if(el) el.src = cfg.login_avatar;
   }
-  
   const saved = getAvatarFromStorage();
   if(saved) applyAvatarEverywhere(saved);
   
-  // Thử load config từ server (không bắt buộc)
-  try{
-    await loadConfigFromServer();
-  }catch(e){}
+  try{ await loadConfigFromServer(); }catch(e){}
   
   // Auto login nếu có session
   const u = currentUser();
   if(u){
+    // Force admin
+    if(u.email === ADMIN_EMAIL){
+      u.is_admin = 1;
+      refreshUser(u);
+    }
     const res = await apiGetUser();
     if(res && res.success){
+      // Force lại lần nữa sau khi get user
+      const fresh = res.user;
+      if(fresh.email === ADMIN_EMAIL){
+        fresh.is_admin = 1;
+        refreshUser(fresh);
+      }
       enterApp();
     } else {
-      // Session cũ không hợp lệ → xoá để đăng nhập lại
       clearSession();
-      console.log('[AUTH] Session không hợp lệ, cần đăng nhập lại');
+      console.log('[AUTH] Session không hợp lệ');
     }
   }
-  
-  console.log('[READY] Sẵn sàng đăng nhập');
 });
 
 /* ============================================================
