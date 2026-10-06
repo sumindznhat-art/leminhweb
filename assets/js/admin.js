@@ -336,3 +336,6 @@ function admGenKeys(){
   const arr=[];
   for(let i=0;i<qty;i++)arr.push(createKey(days,note).key);
   alert('✅ Đã tạo '+qty+' key:\n\n'+arr.join('\n'));
+  renderAdminKeys();
+}
+function admDelKey(code){if(!confirm('Xoá key?'))return;saveKeys(loadKeys().filter(k=>k.key!==code));renderAdminKeys();}
