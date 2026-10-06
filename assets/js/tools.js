@@ -21,11 +21,17 @@ function openToolViewer(tool){
   document.getElementById('gsSession').textContent='#---';
   document.getElementById('gsResult').textContent='—';
   document.getElementById('gsTime').textContent='—';
+  // Đổi panel title theo loại tool
+  document.getElementById('panelTitle').textContent = (tool.panel==='md5')?'MD5':'TÀI XỈU';
+  const card=document.querySelector('.predict-card');
+  if(card)card.classList.toggle('md5',tool.panel==='md5');
+  // Đổi avatar TOOL (khác avatar login)
+  const cfg=loadConfig();
   // TỰ ĐỘNG VÀO GAME
   const frame=document.getElementById('gameFrame');
   frame.src=tool.game_url||'about:blank';
   document.getElementById('game-screen').classList.add('show');
-  // Lưu vào user
+  // Lưu user
   u.lastApi=tool.api_url;u.lastTool=tool.name;u.lastToolAt=now();
   setUser(u.email,u);
   if(toolInterval){clearInterval(toolInterval);toolInterval=null;}
@@ -39,20 +45,16 @@ function closeGame(){
   if(toolInterval){clearInterval(toolInterval);toolInterval=null;}
   activeTool=null;
 }
-function toggleApiInfo(){
-  apiInfoVisible=!apiInfoVisible;
-  document.getElementById('gsApiInfo').classList.toggle('show',apiInfoVisible);
-}
+function toggleApiInfo(){apiInfoVisible=!apiInfoVisible;document.getElementById('gsApiInfo').classList.toggle('show',apiInfoVisible);}
 function togglePanel(){document.querySelector('.predict-card').classList.toggle('collapsed');}
 function resetPanel(){
   document.getElementById('taiCircle').className='tx-circle tai';
   document.getElementById('xiuCircle').className='tx-circle xiu';
   document.getElementById('taiCircle').textContent='--%';
   document.getElementById('xiuCircle').textContent='--%';
-  document.getElementById('confBox').classList.remove('show','mid','ok','high');
-  document.getElementById('confBar').style.width='0%';
   document.getElementById('sidValue').textContent='#@hk';
   document.getElementById('statusText').textContent='Đang kết nối...';
+  document.getElementById('statusText').classList.remove('analyzing');
 }
 function setCircles(gy,active,rt,rx){
   const tc=document.getElementById('taiCircle'),xc=document.getElementById('xiuCircle');
@@ -60,16 +62,6 @@ function setCircles(gy,active,rt,rx){
   if(rt!=null&&rx!=null){tc.textContent=Math.round(rt)+'%';xc.textContent=Math.round(rx)+'%';}
   else{tc.textContent='--%';xc.textContent='--%';}
   if(gy){const el=gy==='TAI'?tc:xc;el.classList.add(active?'active':'resting');}
-}
-function setConf(d,show){
-  const cb=document.getElementById('confBox'),bar=document.getElementById('confBar');
-  if(!show||d<50){cb.classList.remove('show');bar.style.width='0%';return;}
-  let lv='',cls='';
-  if(d>=80){lv='CAO';cls='high';}else if(d>=70){lv='ỔN';cls='ok';}else{lv='TRUNG BÌNH';cls='mid';}
-  cb.querySelector('.conf-level').textContent=lv;
-  cb.querySelector('.conf-num').textContent=d+'%';
-  cb.className='conf-box show '+cls;
-  bar.style.width=Math.min(100,d)+'%';
 }
 async function tickApi(){
   if(!activeTool)return;
@@ -89,11 +81,8 @@ async function tickApi(){
     document.getElementById('gsSession').textContent='#'+(nid+1);
     document.getElementById('gsTime').textContent=new Date().toLocaleTimeString('vi-VN');
     if(_lastSid!==null&&nid!==_lastSid){
-      const last=asc[asc.length-1];
-      const kq=last.resultTruyenThong||last.result||last.ketQua;
-      if(_lastGy&&kq)_engine.nap(asc);
       _im=true;
-      setCircles(null,false,null,null);setConf(0,false);
+      setCircles(null,false,null,null);
       document.getElementById('statusText').textContent='Chờ ván mới...';
       document.getElementById('gsResult').textContent='Đang chờ...';
       setTimeout(()=>{_im=false;analyze(asc,nid);},5000);
@@ -113,13 +102,12 @@ function analyze(asc,nid){
   document.getElementById('sidValue').textContent='#'+(nid+1);
   if(qs.g){
     setCircles(qs.g,true,qs.rt,qs.rx);
-    setConf(qs.conf,true);
     document.getElementById('statusText').textContent='Sẵn sàng';
     document.getElementById('statusText').classList.add('analyzing');
     _lastGy=qs.g;
     document.getElementById('gsResult').textContent=qs.g+' ('+qs.conf+'%)';
   }else{
-    setCircles(null,false,null,null);setConf(0,false);
+    setCircles(null,false,null,null);
     document.getElementById('statusText').textContent='Chờ dữ liệu...';
     _lastGy=null;
   }
