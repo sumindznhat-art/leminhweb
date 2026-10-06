@@ -1,11 +1,10 @@
 /* ============================================================
-   APP.JS - TOOL LEMINH v7
-   Đăng nhập thẳng vào app · Không chặn key-screen
+   APP.JS - FULL
    ============================================================ */
 
 function isRealAdmin(u){
   if(!u) return false;
-  if(u.isAdmin === true) return true;
+  if(u.is_admin == 1 || u.is_admin === true) return true;
   if(u.email === 'leminhdz@gmail.com') return true;
   return false;
 }
@@ -116,14 +115,6 @@ function openDrawer(){
     if(isRealAdmin(u)) diAdmin.style.cssText = 'display:flex !important;pointer-events:auto !important;visibility:visible !important;opacity:1 !important;';
     else diAdmin.style.display = 'none';
   }
-  if(isRealAdmin(u)){
-    const pb = document.getElementById('pendBadge');
-    if(pb){
-      const pend = loadDeposits().filter(d => d.status === 'pending');
-      pb.textContent = pend.length;
-      pb.style.display = pend.length > 0 ? 'inline-block' : 'none';
-    }
-  }
 }
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('show');
@@ -131,58 +122,62 @@ function closeDrawer(){
 }
 
 /* ===== HISTORY ===== */
-function openHistoryDeposit(){
+async function openHistoryDeposit(){
   closeDrawer();
   const u = currentUser(); if(!u) return;
-  const list = (u.history || []).slice().reverse();
   document.getElementById('histTitle').textContent = '💰 Lịch sử nạp tiền';
   const box = document.getElementById('histContent');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+  document.getElementById('historyModal').classList.add('show');
+
+  const res = await apiHistory();
+  box.innerHTML = '';
+  const list = (res.history || []).filter(h => h.type === 'deposit' || h.type === 'admin' || h.type === 'buy' || h.type === 'auto-buy');
+
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có giao dịch</div>';
-  } else {
-    box.innerHTML = '';
-    list.forEach(h => {
-      const el = document.createElement('div');
-      el.className = 'info-row'; el.style.margin = '0 0 8px';
-      const color = h.amount > 0 ? '#10b981' : '#ef4444';
-      const label = h.type === 'deposit' ? 'Nạp tiền'
-                  : h.type === 'admin'   ? 'Admin điều chỉnh'
-                  : h.type === 'auto-buy'? 'Tự động mua VIP'
-                  : 'Mua VIP';
-      el.innerHTML = `<div><div class="lbl">${label}</div>
-        <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
-        <div style="text-align:right"><div class="val" style="color:${color}">${h.amount > 0 ? '+' : ''}${fmt(h.amount)}</div>
-        <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div></div>`;
-      box.appendChild(el);
-    });
+    return;
   }
-  document.getElementById('historyModal').classList.add('show');
+  list.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'info-row'; el.style.margin = '0 0 8px';
+    const color = h.amount > 0 ? '#10b981' : '#ef4444';
+    const label = h.type === 'deposit' ? 'Nạp tiền'
+                : h.type === 'admin'   ? 'Admin điều chỉnh'
+                : h.type === 'auto-buy'? 'Tự động mua VIP'
+                : 'Mua VIP';
+    el.innerHTML = `<div><div class="lbl">${label}</div>
+      <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+      <div style="text-align:right"><div class="val" style="color:${color}">${h.amount > 0 ? '+' : ''}${fmt(h.amount)}</div>
+      <div style="font-size:11px;color:#64748b">Số dư: ${fmt(h.balance)}</div></div>`;
+    box.appendChild(el);
+  });
 }
-function openHistoryKey(){
+
+async function openHistoryKey(){
   closeDrawer();
   const u = currentUser(); if(!u) return;
-  const list = (u.keyHistory || []).slice().reverse();
-  document.getElementById('histTitle').textContent = '🔑 Lịch sử mua key';
+  document.getElementById('histTitle').textContent = '🔑 Lịch sử key';
   const box = document.getElementById('histContent');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+  document.getElementById('historyModal').classList.add('show');
+
+  const res = await apiHistory();
+  box.innerHTML = '';
+  const list = (res.history || []).filter(h => h.type === 'key');
+
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;color:#94a3b8;font-weight:700;padding:20px">Chưa có key</div>';
-  } else {
-    box.innerHTML = '';
-    list.forEach(h => {
-      const el = document.createElement('div');
-      el.className = 'info-row'; el.style.margin = '0 0 8px';
-      const via = h.via === 'admin' ? 'Admin cấp'
-                : h.via === 'auto'  ? 'Tự động mua'
-                : h.via === 'buy'   ? 'Mua gói VIP'
-                : 'Tự nhập';
-      el.innerHTML = `<div><div class="lbl">${via}</div>
-        <div style="font-size:11px;font-family:monospace;color:#3b5bfd;font-weight:800">${esc(h.code)}</div>
-        <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
-        <div style="text-align:right"><div class="val" style="color:#10b981">+${h.days} ngày</div></div>`;
-      box.appendChild(el);
-    });
+    return;
   }
-  document.getElementById('historyModal').classList.add('show');
+  list.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'info-row'; el.style.margin = '0 0 8px';
+    el.innerHTML = `<div><div class="lbl">Kích hoạt key</div>
+      <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
+      <div style="text-align:right"><div class="val" style="color:#10b981">${esc(h.note)}</div></div>`;
+    box.appendChild(el);
+  });
 }
 
 /* ===== PAGES ===== */
@@ -226,7 +221,7 @@ let activeCat = 'all';
 function renderTools(){
   const cfg = loadConfig();
   const u = currentUser();
-  const isVIP = u && (isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now()));
+  const isVIP = u && (isRealAdmin(u) || (u.key_expiry && u.key_expiry > now()));
   const cats = ['all', ...new Set(cfg.tools.map(t => t.cat))];
   const names = {all:'Tất cả', taixiu:'Tài Xỉu', sicbo:'Sicbo', baccarat:'Baccarat'};
   const ct = document.getElementById('catTabs'); if(!ct) return;
@@ -243,6 +238,7 @@ function renderTools(){
   const list = cfg.tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
   const tc = document.getElementById('toolCount');
   if(tc) tc.textContent = cfg.tools.filter(t => t.enabled).length;
+
   list.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tool-card';
@@ -276,7 +272,8 @@ function renderVIPPage(){
   const bal = document.getElementById('vipBalance');
   const exp = document.getElementById('vipExpiry');
   if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
-  if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' : (u.keyExpiry ? fmtDate(u.keyExpiry) : 'Chưa kích hoạt');
+  if(exp) exp.textContent = isRealAdmin(u) ? 'Vĩnh viễn' : (u.key_expiry ? fmtDate(u.key_expiry) : 'Chưa kích hoạt');
+
   const cfg = loadConfig();
   const box = document.getElementById('pkgList'); if(!box) return;
   box.innerHTML = '';
@@ -296,42 +293,23 @@ function renderVIPPage(){
         <div style="text-align:right"><div class="pkg-price-lbl">Cũ</div><div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div></div>
       </div>
       <button class="pkg-buy" ${canBuy ? '' : 'disabled'}>${canBuy ? 'MUA NGAY' : 'KHÔNG ĐỦ TIỀN'}</button>`;
-    el.querySelector('.pkg-buy').onclick = () => buyPackage(p.id);
+    el.querySelector('.pkg-buy').onclick = () => buyPackage(p.id, p.days, p.price, p.name);
     box.appendChild(el);
   });
 }
-function buyPackage(id){
+
+async function buyPackage(id, days, price, name){
   const u = currentUser(); if(!u) return;
-  const cfg = loadConfig();
-  const p = cfg.packages.find(x => x.id === id); if(!p) return;
-  if(u.balance < p.price){
-    alert('❌ Số dư không đủ!\nCần: ' + fmt(p.price) + '\nCó: ' + fmt(u.balance) + '\n\nVui lòng NẠP TIỀN trước!');
+  if(u.balance < price){
+    alert('❌ Số dư không đủ!\nCần: ' + fmt(price) + '\nCó: ' + fmt(u.balance) + '\n\nVui lòng NẠP TIỀN trước!');
     showPage('deposit'); return;
   }
-  if(!confirm('Mua ' + p.name + ' với giá ' + fmt(p.price) + '?')) return;
-  u.balance -= p.price;
-  const base = (u.keyExpiry && u.keyExpiry > now()) ? u.keyExpiry : now();
-  u.keyExpiry = base + p.days * 24 * 3600 * 1000;
-  u.history.push({type:'buy', amount:-p.price, balance:u.balance, at:now(), note:'Mua ' + p.name});
-  u.keyHistory.push({code:'BUY-' + p.id, days:p.days, at:now(), via:'buy'});
-  setUser(u.email, u);
-  if(CLOUD.enabled()) CLOUD.push(true);
-  alert('✅ Mua thành công!\nHạn mới: ' + fmtDate(u.keyExpiry));
+  if(!confirm('Mua ' + name + ' với giá ' + fmt(price) + '?')) return;
+  const res = await apiBuyPackage(id, days, price);
+  if(!res.success){ alert('❌ ' + res.error); return; }
+  await apiGetUser();
+  alert('✅ Mua thành công!\nHạn mới: ' + fmtDate(res.new_expiry));
   renderAll(); showPage('vip');
-}
-function autoBuyKeyForUser(user){
-  if(!user) return;
-  const cfg = loadConfig();
-  const isVIP = user.isAdmin || (user.keyExpiry && user.keyExpiry > now());
-  if(isVIP) return;
-  const avail = cfg.packages.filter(p => p.price <= user.balance).sort((a,b) => a.days - b.days);
-  if(!avail.length) return;
-  const p = avail[avail.length - 1];
-  user.balance -= p.price;
-  user.keyExpiry = now() + p.days * 24 * 3600 * 1000;
-  user.history.push({type:'auto-buy', amount:-p.price, balance:user.balance, at:now(), note:'Tự động mua ' + p.name});
-  user.keyHistory.push({code:'AUTO-' + p.id, days:p.days, at:now(), via:'auto'});
-  setUser(user.email, user);
 }
 
 /* ===== DEPOSIT ===== */
@@ -339,10 +317,10 @@ function renderDeposit(){
   const u = currentUser(); if(!u) return;
   const bal = document.getElementById('depBalance');
   if(bal) bal.textContent = isRealAdmin(u) ? '∞' : fmt(u.balance);
-  const isVIP = isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now());
+  const isVIP = isRealAdmin(u) || (u.key_expiry && u.key_expiry > now());
   const st = document.getElementById('depStatus');
   if(st){
-    if(isVIP){ st.style.color='#10b981'; st.textContent = isRealAdmin(u) ? 'Admin' : ('Key đến ' + fmtDate(u.keyExpiry)); }
+    if(isVIP){ st.style.color='#10b981'; st.textContent = isRealAdmin(u) ? 'Admin' : ('Key đến ' + fmtDate(u.key_expiry)); }
     else { st.style.color='#ef4444'; st.textContent = 'Chưa có key hoặc đã hết hạn'; }
   }
   const cfg = loadConfig();
@@ -361,16 +339,16 @@ function renderDeposit(){
     </div>`;
 }
 function openDepositModal(){ document.getElementById('depositModal').classList.add('show'); }
-function submitDeposit(){
+async function submitDeposit(){
   const u = currentUser(); if(!u) return;
   const amt = parseInt(document.getElementById('depAmount').value, 10);
   const note = document.getElementById('depNote').value.trim();
   if(!amt || amt < 10000){ alert('⚠️ Số tiền tối thiểu 10,000đ!'); return; }
-  addDeposit(u.email, amt, 'bank', note);
+  const res = await apiDepositCreate(amt, note);
+  if(!res.success){ alert('❌ ' + res.error); return; }
   document.getElementById('depAmount').value = '';
   document.getElementById('depNote').value = '';
   closeModal('depositModal');
-  if(CLOUD.enabled()) CLOUD.push(true);
   alert('✅ Đã gửi yêu cầu nạp ' + fmt(amt) + '!\n\nChờ Admin duyệt.');
 }
 
@@ -380,10 +358,10 @@ function renderProfile(){
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   set('profName', u.name || u.email.split('@')[0]);
   set('profBalance', isRealAdmin(u) ? '∞' : fmt(u.balance));
-  set('profJoined', fmtDate(u.createdAt).split(' ')[0]);
-  set('profLastLogin', fmtDateShort(u.lastLogin));
+  set('profJoined', u.created_at ? fmtDate(u.created_at).split(' ')[0] : '—');
+  set('profLastLogin', u.last_login ? fmtDateShort(u.last_login) : '—');
   set('profIP', u.ip || '—');
-  set('profRole', isRealAdmin(u) ? 'ADMIN' : (u.keyExpiry > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
+  set('profRole', isRealAdmin(u) ? 'ADMIN' : (u.key_expiry > now() ? 'VIP MEMBER' : 'THÀNH VIÊN'));
 }
 
 /* ===== RENDER ALL ===== */
@@ -401,9 +379,8 @@ function renderAll(){
     const el = document.getElementById('loginAvatarImg');
     if(el) el.src = cfg.login_avatar;
   }
-  const isVIP = isRealAdmin(u) || (u.keyExpiry && u.keyExpiry > now());
+  const isVIP = isRealAdmin(u) || (u.key_expiry && u.key_expiry > now());
   set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
-
   const af = document.getElementById('adminFloat');
   if(af){
     if(isRealAdmin(u)) af.classList.add('show');
@@ -413,95 +390,33 @@ function renderAll(){
   updateMusicBtn();
 }
 
-/* ===== CLOUD POLLER ===== */
-let _cloudPollerStarted = false;
-function startCloudPoller(){
-  if(_cloudPollerStarted) return; _cloudPollerStarted = true;
-  const interval = (window.CLOUD_CONFIG && window.CLOUD_CONFIG.poll_interval) || 15000;
-  console.log('[CLOUD] Poller started. Interval:', interval + 'ms');
-  if(!CLOUD.enabled()){
-    console.warn('[CLOUD] ⚠️ CHƯA BẬT. Sửa config.js: enabled=true + gist_id + token');
-    return;
-  }
-  setInterval(async () => {
-    if(!CLOUD.enabled()) return;
-    if(CLOUD._pushing) return;
-    if(Date.now() - (CLOUD._lastPull || 0) < 3000) return;
-    const before = localStorage.getItem(CLOUD_TS_KEY) || '0';
-    const ok = await CLOUD.pull(true);
-    if(!ok) return;
-    const after = localStorage.getItem(CLOUD_TS_KEY) || '0';
-    if(before === after) return;
-    console.log('[CLOUD] 🔄 Data mới → refresh UI');
-    const cu = currentUser();
-    if(cu){
-      renderAll(); renderHome();
-      if(document.getElementById('page-deposit').classList.contains('active')) renderDeposit();
-      if(document.getElementById('page-vip').classList.contains('active')) renderVIPPage();
-      if(document.getElementById('page-profile').classList.contains('active')) renderProfile();
-      if(document.getElementById('page-tools').classList.contains('active')) renderTools();
-      if(document.getElementById('adminPanel').classList.contains('show')){
-        const tab = document.querySelector('.admin-tab.active');
-        if(tab && tab.dataset.atab) switchAdminTab(tab.dataset.atab);
-      }
-      /* CHỈ ĐÓNG TOOL NẾU ĐANG MỞ VÀ KEY ĐÃ HẾT */
-      if(!isRealAdmin(cu)){
-        const fresh = getUser(cu.email);
-        if(fresh && (!fresh.keyExpiry || fresh.keyExpiry <= now())){
-          if(document.getElementById('game-screen').classList.contains('show')){
-            alert('🔒 Key đã hết hạn hoặc bị Admin reset!\n\nĐóng tool, vui lòng nạp tiền hoặc nhập key mới.');
-            if(typeof closeGame === 'function') closeGame();
-            if(typeof showPage === 'function') showPage('vip');
-          }
-        }
-      }
-    }
-  }, interval);
-}
-
 /* ===== INIT ===== */
 window.addEventListener('load', async () => {
-  console.log('=== TOOL LEMINH v7 ===');
-  const cfgCloud = window.CLOUD_CONFIG || {};
-  console.log('[CLOUD] Config:', {
-    enabled: cfgCloud.enabled,
-    gist_id: cfgCloud.gist_id ? cfgCloud.gist_id.slice(0,10) + '...' : '(trống)',
-    token: cfgCloud.token ? cfgCloud.token.slice(0,10) + '...' : '(trống)'
-  });
-  if(CLOUD.enabled()){
-    try{
-      const ok = await CLOUD.pull(true);
-      console.log('[CLOUD] Bootstrap pull:', ok ? 'OK' : 'no data');
-    }catch(e){ console.warn('[CLOUD] Bootstrap fail', e); }
-  }
+  console.log('=== BONSICOLA TOOL ===');
+  console.log('[API] URL:', window.API_URL || '/api/index.php');
+
   const cfg = loadConfig();
   const loginName = document.getElementById('loginSiteName');
-  if(loginName) loginName.textContent = cfg.site_name || 'TOOL LEMINH';
+  if(loginName) loginName.textContent = cfg.site_name || 'BONSICOLA';
   if(cfg.login_avatar){
     const el = document.getElementById('loginAvatarImg');
     if(el) el.src = cfg.login_avatar;
   }
   const saved = localStorage.getItem(AVATAR_KEY);
   if(saved) applyAvatarEverywhere(saved);
-  const u = currentUser();
-  if(u) enterApp();
-  startCloudPoller();
 
-  /* Check hết hạn mỗi 30s - CHỈ đóng tool nếu đang mở */
-  setInterval(() => {
-    const cu = currentUser();
-    if(!cu || isRealAdmin(cu)) return;
-    if(!cu.keyExpiry || cu.keyExpiry <= now()){
-      if(document.getElementById('game-screen').classList.contains('show')){
-        alert('🔒 Key đã hết hạn! Đóng tool.\n\nVui lòng nạp tiền hoặc nhập key mới.');
-        if(typeof closeGame === 'function') closeGame();
-        if(typeof showPage === 'function') showPage('vip');
-      }
+  const u = currentUser();
+  if(u){
+    // Verify user còn tồn tại trên server
+    const res = await apiGetUser();
+    if(res.success){
+      enterApp();
+    } else {
+      clearSession();
     }
-  }, 30000);
+  }
 });
 
-/* Expose */
 window.renderAll = renderAll;
 window.renderTools = renderTools;
 window.renderVIPPage = renderVIPPage;
@@ -513,7 +428,6 @@ window.initMusic = initMusic;
 window.reloadMusic = reloadMusic;
 window.stopMusic = stopMusic;
 window.toggleMusic = toggleMusic;
-window.autoBuyKeyForUser = autoBuyKeyForUser;
 window.buyPackage = buyPackage;
 window.submitDeposit = submitDeposit;
 window.openDepositModal = openDepositModal;
