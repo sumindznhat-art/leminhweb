@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title> TOOL ZENO</title>
+<title> TOOL LEMINH</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -11,12 +11,15 @@
 </head>
 <body>
 
+<!-- AUDIO PLAYER ẨN -->
+<audio id="bgMusic" loop preload="none"></audio>
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-box">
     <h1 class="login-title" id="loginSiteName">TOOL LEMINH</h1>
     <p class="login-sub"><i class="fa-solid fa-shield-halved"></i> <span id="subText">Đăng nhập hệ thống</span></p>
-    <div class="login-avatar" id="avatarTrigger">
+    <div class="login-avatar" id="avatarTrigger" title="Nhấn giữ để đổi avatar đăng nhập">
       <div class="login-avatar-ring"></div>
       <img id="loginAvatarImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect fill='%23e0f2fe' width='200' height='200'/><text x='50%25' y='56%25' font-size='90' text-anchor='middle' dominant-baseline='middle'>🎀</text></svg>">
       <div class="login-online-dot"></div>
@@ -46,7 +49,7 @@
 <div id="key-screen">
   <div class="key-box">
     <h2>🔐 CẦN KÍCH HOẠT KEY</h2>
-    <p id="keyMsg">Tài khoản chưa có key.<br>Nạp tiền để mua key hoặc liên hệ Admin.</p>
+    <p>Tài khoản chưa có key.<br>Nạp tiền để mua key hoặc liên hệ Admin.</p>
     <input type="text" id="keyInput" class="key-input" placeholder="XXXX-XXXX-XXXX">
     <button class="key-btn" onclick="activateKey()"><i class="fa-solid fa-unlock"></i> KÍCH HOẠT</button>
     <div class="key-err" id="keyErr"></div>
@@ -64,6 +67,7 @@
       <div class="brand" id="hdrBrand">TOOL LEMINH</div>
     </div>
     <div class="right">
+      <button class="music-btn" id="musicBtn" onclick="toggleMusic()" title="Bật/tắt nhạc"><i class="fa-solid fa-volume-xmark"></i></button>
       <div class="balance-chip" onclick="showPage('deposit')"><i class="fa-solid fa-wallet"></i> <span id="hdrBalance">0đ</span></div>
       <div class="user-avatar" onclick="showPage('profile')"><img id="hdrAvatar" src=""></div>
     </div>
@@ -92,7 +96,7 @@
 
     <!-- DEPOSIT -->
     <div class="page" id="page-deposit">
-      <div class="dep-hero"><h2>Nạp Tiền Vào Ví</h2><p>Chuyển khoản theo thông tin bên dưới</p></div>
+      <div class="dep-hero"><h2>Nạp Tiền Vào Ví</h2><p>Quét QR hoặc chuyển khoản theo STK</p></div>
       <div class="balance-big"><div class="lbl">Số dư ví hiện tại</div><div class="val" id="depBalance">0đ</div><div class="sub" id="depStatus">Chưa có key</div></div>
       <div id="bankInfo"></div>
       <div class="section-title">Thao tác</div>
@@ -142,7 +146,7 @@
   </div>
 </div>
 
-<!-- DRAWER 3 GẠCH -->
+<!-- DRAWER -->
 <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-head">
@@ -158,7 +162,7 @@
   <div class="drawer-foot">© TOOL LEMINH</div>
 </div>
 
-<!-- GAME SCREEN: ấn tool → tự mở game + API -->
+<!-- GAME SCREEN -->
 <div id="game-screen">
   <div class="gs-header">
     <button class="gs-close" onclick="closeGame()"><i class="fa-solid fa-arrow-left"></i></button>
@@ -173,17 +177,16 @@
     <div class="gs-api-row"><span>Dự đoán:</span><b id="gsResult">—</b></div>
     <div class="gs-api-row"><span>Cập nhật:</span><b id="gsTime">—</b></div>
   </div>
+  <!-- PANEL KIỂU MỚI: bỏ chữ "Trung bình/Ổn" -->
   <div class="drag-group" id="dragPanel" style="top:70px;right:14px">
     <div class="predict-card">
-      <div class="card-header"><span class="card-title">AI PANEL</span><button class="toggle-btn" onclick="togglePanel()">−</button></div>
+      <div class="card-header"><span class="card-title" id="panelTitle">TÀI XỈU</span><button class="toggle-btn" onclick="togglePanel()">−</button></div>
       <div class="card-body" id="panelBody">
         <span class="sid-value" id="sidValue">#@hk</span>
         <div class="tx-row">
           <div class="tx-circle tai" id="taiCircle">--%</div>
           <div class="tx-circle xiu" id="xiuCircle">--%</div>
         </div>
-        <div class="conf-box" id="confBox"><span class="conf-level">--</span><span class="conf-num">0%</span></div>
-        <div class="conf-bar"><div class="conf-bar-fill" id="confBar"></div></div>
         <div class="status-text" id="statusText">Đang kết nối...</div>
       </div>
     </div>
@@ -192,7 +195,7 @@
 
 <!-- MODALS -->
 <div class="overlay" id="avatarModal" onclick="if(event.target===this)closeModal('avatarModal')">
-  <div class="sheet" style="max-width:460px"><div class="sheet-grip"></div><h3>🎀 Đổi Avatar</h3>
+  <div class="sheet" style="max-width:460px"><div class="sheet-grip"></div><h3 id="avModalTitle">🎀 Đổi Avatar</h3>
     <div class="av-preview"><div class="av-preview-circle" id="avPreview">🎀</div></div>
     <textarea id="avBase64Input" placeholder="Dán Base64 ảnh (data:image/... hoặc chuỗi thô)"></textarea>
     <div class="av-actions"><button class="av-btn av-save" onclick="saveAvatar()">LƯU</button><button class="av-btn av-reset" onclick="resetAvatar()">MẶC ĐỊNH</button></div>
