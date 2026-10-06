@@ -1,6 +1,6 @@
 /* ============================================================
    ADMIN.JS - BONSICOLA FULL
-   Quản lý user, duyệt tiền (có tên + số tiền + IP), sao lưu
+   Duyệt tiền + Base64 avatar/QR + Sao lưu
    ============================================================ */
 
 function openAdmin(){
@@ -169,7 +169,7 @@ async function admDelete(email){
 }
 
 /* ============================================================
-   TAB DUYỆT TIỀN — Hiện tên user + số tiền + IP
+   TAB DUYỆT TIỀN
    ============================================================ */
 async function renderAdminPending(){
   const box = document.getElementById('adminPendingView');
@@ -215,7 +215,7 @@ async function renderAdminPending(){
     return;
   }
 
-  /* Tổng tiền cần duyệt */
+  /* Tổng tiền */
   const total = res.deposits.reduce((s, d) => s + Number(d.amount), 0);
   const summary = document.createElement('div');
   summary.className = 'adm-section';
@@ -239,7 +239,7 @@ async function renderAdminPending(){
     </div>`;
   box.appendChild(summary);
 
-  /* Danh sách yêu cầu */
+  /* Danh sách */
   res.deposits.forEach(d => {
     const el = document.createElement('div');
     el.className = 'pending-item';
@@ -279,10 +279,6 @@ async function renderAdminPending(){
           <span>💵 Số dư hiện tại:</span>
           <b style="color:#10b981">${balance.toLocaleString('vi-VN')}đ</b>
         </div>
-        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px">
-          <span>💳 Phương thức:</span>
-          <b>${d.method === 'bank' ? 'Chuyển khoản' : 'Thẻ cào'}</b>
-        </div>
         <div style="display:flex;justify-content:space-between;gap:8px">
           <span>🕐 Thời gian:</span>
           <b>${fmtDate(d.created_at)}</b>
@@ -306,10 +302,10 @@ async function renderAdminPending(){
 }
 
 async function approveDeposit(id){
-  if(!confirm('Duyệt yêu cầu nạp tiền này?\n\nTiền sẽ được cộng và hệ thống tự động mua key cho user.')) return;
+  if(!confirm('Duyệt yêu cầu nạp tiền này?\n\nTiền sẽ được cộng + key tự động mua cho user.')) return;
   const res = await adminApi('deposit_approve', { id });
   if(!res || !res.success){ alert('❌ ' + ((res && res.error) || 'Lỗi duyệt')); return; }
-  alert('✅ Đã duyệt! Tiền đã cộng + key tự động mua (nếu đủ tiền).');
+  alert('✅ Đã duyệt!');
   renderAdminPending();
 }
 
@@ -322,13 +318,12 @@ async function rejectDeposit(id){
 }
 
 /* ============================================================
-   SAO LƯU — Tải file JSON
+   SAO LƯU
    ============================================================ */
 async function downloadBackup(){
   const s = getSession();
   if(!s) return alert('❌ Chưa đăng nhập!');
-
-  if(!confirm('📥 Tải xuống file sao lưu toàn bộ dữ liệu?\n\nBao gồm:\n• Users\n• Deposits\n• Keys\n• History')) return;
+  if(!confirm('📥 Tải xuống file sao lưu toàn bộ dữ liệu?')) return;
 
   try{
     const url = (window.API_URL || '/api/index.php')
@@ -339,7 +334,7 @@ async function downloadBackup(){
     const r = await fetch(url);
     if(!r.ok){
       const txt = await r.text();
-      alert('❌ Lỗi sao lưu (HTTP ' + r.status + ')\n\n' + txt.slice(0, 300));
+      alert('❌ Lỗi (HTTP ' + r.status + ')\n' + txt.slice(0, 200));
       return;
     }
 
@@ -353,21 +348,21 @@ async function downloadBackup(){
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-
-    alert('✅ Đã tải file sao lưu thành công!');
+    alert('✅ Đã tải file sao lưu!');
   }catch(e){
     alert('❌ Lỗi: ' + e.message);
   }
 }
 
 /* ============================================================
-   TAB CẤU HÌNH
+   TAB CẤU HÌNH — BASE64 AVATAR / QR / LOGO
    ============================================================ */
 function renderAdminConfig(){
   const cfg = loadConfig();
   const box = document.getElementById('adminConfigView');
   box.innerHTML = '';
 
+  /* ====== 1. CẤU HÌNH CHUNG ====== */
   const site = document.createElement('div');
   site.className = 'adm-section';
   site.innerHTML = `<h4><i class="fa-solid fa-gear"></i> Cấu hình chung</h4>
@@ -377,31 +372,122 @@ function renderAdminConfig(){
     <button class="green" onclick="saveCfgSite()">💾 LƯU</button>`;
   box.appendChild(site);
 
-  const bank = document.createElement('div');
-  bank.className = 'adm-section';
-  bank.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng</h4>
-    <input class="adm-input" id="cfgBankName" value="${esc(cfg.bank.name)}" placeholder="Tên NH">
-    <input class="adm-input" id="cfgBankAcc" value="${esc(cfg.bank.acc)}" placeholder="Số TK">
-    <input class="adm-input" id="cfgBankHolder" value="${esc(cfg.bank.holder)}" placeholder="Chủ TK">
-    <button class="green" onclick="saveCfgBank()">💾 LƯU BANK</button>`;
-  box.appendChild(bank);
+  /* ====== 2. BASE64 AVATAR ĐĂNG NHẬP ====== */
+  const avatarSec = document.createElement('div');
+  avatarSec.className = 'adm-section';
+  avatarSec.style.background = 'linear-gradient(135deg,#f0f9ff,#e0f2fe)';
+  avatarSec.style.borderColor = '#7dd3fc';
+  avatarSec.style.borderStyle = 'solid';
+  avatarSec.innerHTML = `
+    <h4 style="color:#0284c7"><i class="fa-solid fa-image"></i> 🎀 Avatar đăng nhập / đăng ký (Base64)</h4>
+    <p style="font-size:11.5px;color:#0369a1;font-weight:600;margin-bottom:10px;line-height:1.6">
+      Dán chuỗi Base64 ảnh vào ô dưới → LƯU.<br>
+      Ảnh này hiển thị ở vòng tròn avatar trong trang đăng nhập/đăng ký.
+    </p>
 
+    <div style="text-align:center;margin-bottom:12px">
+      ${cfg.login_avatar
+        ? `<img id="prevLoginAvatar" src="${cfg.login_avatar}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 0 0 3px rgba(56,189,248,.5),0 8px 20px rgba(2,132,199,.35)">`
+        : `<div id="prevLoginAvatar" style="width:100px;height:100px;border-radius:50%;background:#e0f2fe;border:4px solid #fff;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 0 0 3px rgba(56,189,248,.5)">🎀</div>`}
+    </div>
+
+    <textarea class="adm-textarea" id="cfgLoginAvatarB64" placeholder="Dán Base64 avatar vào đây...&#10;VD: data:image/png;base64,iVBORw0KGgo...&#10;Hoặc chỉ cần: iVBORw0KGgo..." style="min-height:100px;font-size:10.5px">${cfg.login_avatar || ''}</textarea>
+
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="green" onclick="saveCfgLoginAvatar()" style="flex:1">
+        <i class="fa-solid fa-floppy-disk"></i> 💾 LƯU AVATAR
+      </button>
+      <button class="red" onclick="clearCfgLoginAvatar()">
+        <i class="fa-solid fa-trash"></i> XOÁ
+      </button>
+    </div>`;
+  box.appendChild(avatarSec);
+
+  /* ====== 3. BASE64 QR NGÂN HÀNG ====== */
+  const qrSec = document.createElement('div');
+  qrSec.className = 'adm-section';
+  qrSec.style.background = 'linear-gradient(135deg,#fef3c7,#fde68a)';
+  qrSec.style.borderColor = '#fbbf24';
+  qrSec.style.borderStyle = 'solid';
+  qrSec.innerHTML = `
+    <h4 style="color:#78350f"><i class="fa-solid fa-qrcode"></i> 📷 QR Ngân hàng (Base64)</h4>
+    <p style="font-size:11.5px;color:#92400e;font-weight:600;margin-bottom:10px;line-height:1.6">
+      Dán chuỗi Base64 ảnh QR ngân hàng → LƯU.<br>
+      Hiển thị trong trang <b>NẠP TIỀN</b> cho user quét.
+    </p>
+
+    <div style="text-align:center;margin-bottom:12px;background:#fff;border-radius:12px;padding:12px">
+      ${cfg.bank.qr
+        ? `<img id="prevBankQR" src="${cfg.bank.qr}" style="max-width:100%;max-height:280px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15)">`
+        : `<div id="prevBankQR" style="padding:40px 20px;color:#94a3b8;font-weight:700">⚠️ Chưa có QR</div>`}
+    </div>
+
+    <textarea class="adm-textarea" id="cfgBankQRB64" placeholder="Dán Base64 ảnh QR vào đây...&#10;VD: data:image/png;base64,iVBORw0KGgo..." style="min-height:100px;font-size:10.5px">${cfg.bank.qr || ''}</textarea>
+
+    <input class="adm-input" id="cfgBankName" value="${esc(cfg.bank.name)}" placeholder="Tên ngân hàng (VD: MB Bank)" style="margin-top:8px">
+    <input class="adm-input" id="cfgBankAcc" value="${esc(cfg.bank.acc)}" placeholder="Số tài khoản">
+    <input class="adm-input" id="cfgBankHolder" value="${esc(cfg.bank.holder)}" placeholder="Chủ tài khoản">
+
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="green" onclick="saveCfgBank()" style="flex:1">
+        <i class="fa-solid fa-floppy-disk"></i> 💾 LƯU NGÂN HÀNG + QR
+      </button>
+      <button class="red" onclick="clearCfgBankQR()">
+        <i class="fa-solid fa-trash"></i> XOÁ QR
+      </button>
+    </div>`;
+  box.appendChild(qrSec);
+
+  /* ====== 4. BASE64 LOGO HIỂN THỊ TRONG WEB ====== */
+  const logoSec = document.createElement('div');
+  logoSec.className = 'adm-section';
+  logoSec.style.background = 'linear-gradient(135deg,#f3e8ff,#e9d5ff)';
+  logoSec.style.borderColor = '#c084fc';
+  logoSec.style.borderStyle = 'solid';
+  logoSec.innerHTML = `
+    <h4 style="color:#6b21a8"><i class="fa-solid fa-star"></i> 🎨 Logo hiển thị trong web (Base64)</h4>
+    <p style="font-size:11.5px;color:#7e22ce;font-weight:600;margin-bottom:10px;line-height:1.6">
+      Logo nhỏ hiển thị góc phải trên của trang chủ.<br>
+      Để trống = hiển thị icon mặc định.
+    </p>
+
+    <div style="text-align:center;margin-bottom:12px">
+      ${cfg.logo_web
+        ? `<img id="prevLogoWeb" src="${cfg.logo_web}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 0 0 3px rgba(168,85,247,.4)">`
+        : `<div id="prevLogoWeb" style="width:60px;height:60px;border-radius:50%;background:#e9d5ff;display:flex;align-items:center;justify-content:center;font-size:24px;border:3px solid #fff;box-shadow:0 0 0 3px rgba(168,85,247,.4)">🚀</div>`}
+    </div>
+
+    <textarea class="adm-textarea" id="cfgLogoWebB64" placeholder="Dán Base64 logo vào đây..." style="min-height:80px;font-size:10.5px">${cfg.logo_web || ''}</textarea>
+
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="green" onclick="saveCfgLogoWeb()" style="flex:1">
+        <i class="fa-solid fa-floppy-disk"></i> 💾 LƯU LOGO
+      </button>
+      <button class="red" onclick="clearCfgLogoWeb()">
+        <i class="fa-solid fa-trash"></i> XOÁ
+      </button>
+    </div>`;
+  box.appendChild(logoSec);
+
+  /* ====== 5. SAO LƯU DỮ LIỆU ====== */
   const backup = document.createElement('div');
   backup.className = 'adm-section';
-  backup.style.background = 'linear-gradient(135deg,#fef3c7,#fde68a)';
-  backup.style.borderColor = '#fbbf24';
+  backup.style.background = 'linear-gradient(135deg,#ecfdf5,#d1fae5)';
+  backup.style.borderColor = '#6ee7b7';
   backup.style.borderStyle = 'solid';
-  backup.innerHTML = `<h4 style="color:#78350f"><i class="fa-solid fa-database"></i> Sao lưu dữ liệu</h4>
-    <p style="font-size:11.5px;color:#92400e;font-weight:600;margin-bottom:8px;line-height:1.6">
-      Tải file JSON chứa toàn bộ Users, Deposits, Keys, History.<br>
-      Dùng để backup hoặc khôi phục khi cần.
+  backup.innerHTML = `
+    <h4 style="color:#065f46"><i class="fa-solid fa-database"></i> 💾 Sao lưu dữ liệu</h4>
+    <p style="font-size:11.5px;color:#047857;font-weight:600;margin-bottom:8px;line-height:1.6">
+      Tải file JSON chứa toàn bộ:<br>
+      Users · Deposits · Keys · History
     </p>
-    <button class="orange" onclick="downloadBackup()" style="width:100%;padding:12px">
+    <button class="green" onclick="downloadBackup()" style="width:100%;padding:12px">
       <i class="fa-solid fa-download"></i> 📥 TẢI FILE SAO LƯU (.JSON)
     </button>`;
   box.appendChild(backup);
 }
 
+/* ===== SAVE CHUNG ===== */
 function saveCfgSite(){
   const c = loadConfig();
   c.site_name = document.getElementById('cfgSiteName').value;
@@ -413,14 +499,176 @@ function saveCfgSite(){
   alert('✅ Đã lưu!');
 }
 
+/* ===== SAVE AVATAR LOGIN ===== */
+function saveCfgLoginAvatar(){
+  const inp = document.getElementById('cfgLoginAvatarB64');
+  const raw = inp.value.trim();
+
+  if(!raw){
+    alert('⚠️ Vui lòng dán Base64 avatar!');
+    return;
+  }
+
+  if(raw.length < 50){
+    alert('⚠️ Chuỗi quá ngắn, không phải ảnh!');
+    return;
+  }
+
+  const src = normalizeAvatar(raw);
+  if(!src){
+    alert('❌ Không nhận diện được ảnh!');
+    return;
+  }
+
+  /* Test ảnh load được không */
+  const img = new Image();
+  img.onload = () => {
+    const c = loadConfig();
+    c.login_avatar = src;
+    saveConfig(c);
+
+    const el = document.getElementById('loginAvatarImg');
+    if(el) el.src = src;
+
+    /* Update preview */
+    const prev = document.getElementById('prevLoginAvatar');
+    if(prev){
+      prev.outerHTML = `<img id="prevLoginAvatar" src="${src}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 0 0 3px rgba(56,189,248,.5),0 8px 20px rgba(2,132,199,.35)">`;
+    }
+
+    alert('✅ Đã lưu Avatar đăng nhập!');
+  };
+  img.onerror = () => {
+    alert('❌ Base64 không hợp lệ — ảnh không load được!');
+  };
+  img.src = src;
+}
+
+function clearCfgLoginAvatar(){
+  if(!confirm('Xoá Avatar đăng nhập?')) return;
+  const c = loadConfig();
+  c.login_avatar = '';
+  saveConfig(c);
+  const el = document.getElementById('loginAvatarImg');
+  if(el) el.src = DEFAULT_AVATAR;
+  const prev = document.getElementById('prevLoginAvatar');
+  if(prev){
+    prev.outerHTML = `<div id="prevLoginAvatar" style="width:100px;height:100px;border-radius:50%;background:#e0f2fe;border:4px solid #fff;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 0 0 3px rgba(56,189,248,.5)">🎀</div>`;
+  }
+  const inp = document.getElementById('cfgLoginAvatarB64');
+  if(inp) inp.value = '';
+  alert('✅ Đã xoá avatar!');
+}
+
+/* ===== SAVE BANK + QR ===== */
 function saveCfgBank(){
   const c = loadConfig();
+
   c.bank.name = document.getElementById('cfgBankName').value;
   c.bank.acc = document.getElementById('cfgBankAcc').value;
   c.bank.holder = document.getElementById('cfgBankHolder').value;
+
+  const rawQR = document.getElementById('cfgBankQRB64').value.trim();
+
+  if(rawQR && rawQR.length > 50){
+    const src = normalizeAvatar(rawQR);
+    if(src){
+      const img = new Image();
+      img.onload = () => {
+        c.bank.qr = src;
+        saveConfig(c);
+
+        /* Update preview */
+        const prev = document.getElementById('prevBankQR');
+        if(prev){
+          prev.outerHTML = `<img id="prevBankQR" src="${src}" style="max-width:100%;max-height:280px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15)">`;
+        }
+
+        alert('✅ Đã lưu ngân hàng + QR!');
+      };
+      img.onerror = () => {
+        alert('⚠️ QR Base64 không hợp lệ — chỉ lưu ngân hàng, không lưu QR.\n\nKiểm tra lại chuỗi Base64!');
+        c.bank.qr = '';
+        saveConfig(c);
+      };
+      img.src = src;
+    } else {
+      c.bank.qr = '';
+      saveConfig(c);
+      alert('⚠️ QR không hợp lệ, chỉ lưu ngân hàng!');
+    }
+  } else {
+    /* Không có QR → chỉ lưu bank */
+    saveConfig(c);
+    alert('✅ Đã lưu thông tin ngân hàng!');
+  }
+}
+
+function clearCfgBankQR(){
+  if(!confirm('Xoá QR ngân hàng?')) return;
+  const c = loadConfig();
+  c.bank.qr = '';
   saveConfig(c);
-  renderAdminConfig();
-  alert('✅ Đã lưu bank!');
+  const prev = document.getElementById('prevBankQR');
+  if(prev){
+    prev.outerHTML = `<div id="prevBankQR" style="padding:40px 20px;color:#94a3b8;font-weight:700">⚠️ Chưa có QR</div>`;
+  }
+  const inp = document.getElementById('cfgBankQRB64');
+  if(inp) inp.value = '';
+  alert('✅ Đã xoá QR!');
+}
+
+/* ===== SAVE LOGO WEB ===== */
+function saveCfgLogoWeb(){
+  const inp = document.getElementById('cfgLogoWebB64');
+  const raw = inp.value.trim();
+
+  if(!raw){
+    alert('⚠️ Vui lòng dán Base64 logo!');
+    return;
+  }
+
+  if(raw.length < 50){
+    alert('⚠️ Chuỗi quá ngắn, không phải ảnh!');
+    return;
+  }
+
+  const src = normalizeAvatar(raw);
+  if(!src){
+    alert('❌ Không nhận diện được ảnh!');
+    return;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    const c = loadConfig();
+    c.logo_web = src;
+    saveConfig(c);
+
+    const prev = document.getElementById('prevLogoWeb');
+    if(prev){
+      prev.outerHTML = `<img id="prevLogoWeb" src="${src}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 0 0 3px rgba(168,85,247,.4)">`;
+    }
+    alert('✅ Đã lưu logo!');
+  };
+  img.onerror = () => {
+    alert('❌ Base64 không hợp lệ!');
+  };
+  img.src = src;
+}
+
+function clearCfgLogoWeb(){
+  if(!confirm('Xoá logo web?')) return;
+  const c = loadConfig();
+  c.logo_web = '';
+  saveConfig(c);
+  const prev = document.getElementById('prevLogoWeb');
+  if(prev){
+    prev.outerHTML = `<div id="prevLogoWeb" style="width:60px;height:60px;border-radius:50%;background:#e9d5ff;display:flex;align-items:center;justify-content:center;font-size:24px;border:3px solid #fff;box-shadow:0 0 0 3px rgba(168,85,247,.4)">🚀</div>`;
+  }
+  const inp = document.getElementById('cfgLogoWebB64');
+  if(inp) inp.value = '';
+  alert('✅ Đã xoá logo!');
 }
 
 /* ============================================================
