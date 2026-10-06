@@ -1,84 +1,29 @@
 /* ============================================================
-   APP.JS - BONSICOLA (Fix lỗi admin - Auto force)
-   Chạy được cả Vercel + PHP
+   APP.JS - BONSICOLA
+   Admin: chỉ cần đúng email + pass
    ============================================================ */
 
-const ADMIN_EMAIL = 'leminhdz@gmail.com';
-const ADMIN_PASS  = 'admin123';
-const LS_USERS    = 'bonsicola_ls_users';
-
 /* ============================================================
-   AUTO INIT ADMIN - CHẠY NGAY KHI LOAD SCRIPT
-   Force tạo/sửa admin trong localStorage để đảm bảo is_admin = 1
-   ============================================================ */
-(function autoForceAdmin(){
-  try{
-    let users = null;
-    try{ users = JSON.parse(localStorage.getItem(LS_USERS) || 'null'); }catch(e){}
-    if(!users) users = {};
-
-    const existing = users[ADMIN_EMAIL];
-    const nowMs = Date.now();
-
-    // Nếu chưa có HOẶC có nhưng is_admin != 1 → force tạo/sửa
-    if(!existing || Number(existing.is_admin) !== 1){
-      users[ADMIN_EMAIL] = {
-        id: existing?.id || 1,
-        email: ADMIN_EMAIL,
-        password: ADMIN_PASS,
-        name: existing?.name || 'Admin BONSICOLA',
-        balance: existing?.balance || 999999999,
-        key_expiry: existing?.key_expiry || 9999999999999,
-        is_admin: 1,
-        ip: existing?.ip || 'local',
-        last_login: existing?.last_login || nowMs,
-        created_at: existing?.created_at || nowMs,
-        last_api: existing?.last_api || '',
-        last_tool: existing?.last_tool || '',
-        last_tool_at: existing?.last_tool_at || 0
-      };
-      localStorage.setItem(LS_USERS, JSON.stringify(users));
-      console.log('[FORCE] ✅ Đã force admin is_admin=1:', ADMIN_EMAIL);
-    } else {
-      console.log('[FORCE] ✅ Admin đã OK:', ADMIN_EMAIL);
-    }
-  }catch(e){
-    console.warn('[FORCE] Lỗi:', e);
-  }
-})();
-
-/* ============================================================
-   FIX SESSION - Nếu session có email admin thì force is_admin=1
-   ============================================================ */
-(function fixSession(){
-  try{
-    const raw = localStorage.getItem('bonsicola_session');
-    if(!raw) return;
-    const s = JSON.parse(raw);
-    if(!s || !s.user) return;
-    
-    if(s.user.email === ADMIN_EMAIL && Number(s.user.is_admin) !== 1){
-      s.user.is_admin = 1;
-      localStorage.setItem('bonsicola_session', JSON.stringify(s));
-      console.log('[FIX] ✅ Đã fix session admin: is_admin=1');
-    }
-  }catch(e){
-    console.warn('[FIX] Lỗi session:', e);
-  }
-})();
-
-/* ============================================================
-   CHECK ADMIN (chấp nhận cả number, string, boolean)
+   CHECK ADMIN - CHỈ CẦN ĐÚNG EMAIL ADMIN
    ============================================================ */
 function isRealAdmin(u){
   if(!u) return false;
-  const v = u.is_admin;
-  if(v === 1 || v === true || v === '1') return true;
-  // Nếu là email admin VÀ đã login thành công → cũng cho admin
-  if(u.email === ADMIN_EMAIL && u.password === ADMIN_PASS) return true;
+  // ✅ ĐÚNG EMAIL ADMIN → LÀ ADMIN
+  if(u.email === 'leminhdz@gmail.com') return true;
+  // Fallback cho admin phụ
+  if(u.is_admin === 1 || u.is_admin === '1' || u.is_admin === true) return true;
   return false;
 }
 window.isRealAdmin = isRealAdmin;
+
+/* Đảm bảo admin có trong localStorage ngay khi load */
+(function ensureAdmin(){
+  try{
+    if(typeof lsInitUsers === 'function') lsInitUsers();
+  }catch(e){
+    console.warn('[ADMIN INIT]', e);
+  }
+})();
 
 /* ============================================================
    MUSIC
@@ -121,8 +66,13 @@ function stopMusic(){
 }
 
 function toggleMusic(){
-  if(_musicPlaying){ stopMusic(); localStorage.setItem(MUSIC_ON_KEY, '0'); }
-  else { playMusic(); localStorage.setItem(MUSIC_ON_KEY, '1'); }
+  if(_musicPlaying){ 
+    stopMusic(); 
+    localStorage.setItem(MUSIC_ON_KEY, '0'); 
+  } else { 
+    playMusic(); 
+    localStorage.setItem(MUSIC_ON_KEY, '1'); 
+  }
 }
 
 function updateMusicBtn(){
@@ -247,18 +197,19 @@ function openDrawer(){
   const avEl = document.getElementById('drawerAvatar');
   if(avEl) avEl.src = getAvatarFromStorage() || DEFAULT_AVATAR;
   
-  // Force hiện nút admin nếu là admin
+  const isAdm = isRealAdmin(u);
+  console.log('[DRAWER] isRealAdmin =', isAdm, '| email:', u.email);
+  
   const diAdmin = document.getElementById('diAdmin');
   if(diAdmin){
-    if(isRealAdmin(u)){
+    if(isAdm){
       diAdmin.style.cssText = 'display:flex !important;pointer-events:auto !important;visibility:visible !important;opacity:1 !important;';
     } else {
       diAdmin.style.display = 'none';
     }
   }
   
-  // Đếm pending
-  if(isRealAdmin(u)){
+  if(isAdm){
     const pb = document.getElementById('pendBadge');
     if(pb){
       adminApi('deposit_pending').then(res => {
@@ -407,6 +358,7 @@ function renderTools(){
   const cats = ['all', ...new Set(tools.map(t => t.cat))];
   const names = { all: 'Tất cả', taixiu: 'Tài Xỉu', sicbo: 'Sicbo', baccarat: 'Baccarat', khac: 'Khác' };
   const ct = document.getElementById('catTabs');
+  
   if(ct){
     ct.innerHTML = '';
     cats.forEach(c => {
@@ -417,16 +369,19 @@ function renderTools(){
       ct.appendChild(b);
     });
   }
+  
   const box = document.getElementById('toolList');
   if(!box) return;
   box.innerHTML = '';
   const list = tools.filter(t => t.enabled && (activeCat === 'all' || t.cat === activeCat));
   const tc = document.getElementById('toolCount');
   if(tc) tc.textContent = tools.filter(t => t.enabled).length;
+  
   if(!list.length){
     box.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-weight:700">Không có tool nào</div>';
     return;
   }
+  
   list.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tool-card';
@@ -435,6 +390,7 @@ function renderTools(){
     if(t.hot) tags.push('<span class="tool-badge-hot">HOT</span>');
     if(t.is_new) tags.push('<span class="tool-badge-new">NEW</span>');
     if(t.maintenance) tags.push('<span class="tool-badge-hot" style="background:#f1f5f9;color:#64748b;border-color:#cbd5e1">BẢO TRÌ</span>');
+    
     card.innerHTML = `
       <div class="tool-head">
         <div class="tool-logo">${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='🎲'">` : '🎲'}</div>
@@ -454,6 +410,7 @@ function renderTools(){
           <i class="fa-solid ${isVIP ? 'fa-unlock' : 'fa-lock'}"></i> ${isVIP ? 'MỞ TOOL' : 'VIP'}
         </button>
       </div>`;
+    
     card.querySelector('.tool-btn').onclick = () => openToolViewer(t);
     box.appendChild(card);
   });
@@ -482,14 +439,19 @@ function renderVIPPage(){
       <div class="pkg-discount">${esc(p.disc || '')}</div>
       <div class="pkg-head">
         <div class="pkg-ic"><i class="fa-solid fa-crown"></i></div>
-        <div><div class="pkg-name">${esc(p.name)}</div><div class="pkg-sub">${esc(p.sub || '')}</div></div>
+        <div>
+          <div class="pkg-name">${esc(p.name)}</div>
+          <div class="pkg-sub">${esc(p.sub || '')}</div>
+        </div>
       </div>
       <div class="pkg-desc">Sử dụng không giới hạn trong ${p.days} ngày</div>
       <div class="pkg-price-row">
-        <div><div class="pkg-price-lbl">Giá</div>
+        <div>
+          <div class="pkg-price-lbl">Giá</div>
           <div class="pkg-price">${p.price.toLocaleString('vi-VN')}<span class="u">đ</span></div>
         </div>
-        <div style="text-align:right"><div class="pkg-price-lbl">Cũ</div>
+        <div style="text-align:right">
+          <div class="pkg-price-lbl">Cũ</div>
           <div class="pkg-old">${p.old.toLocaleString('vi-VN')}đ</div>
         </div>
       </div>
@@ -625,7 +587,7 @@ function renderAll(){
   const isVIP = userIsVIP(u);
   set('curPackage', isRealAdmin(u) ? 'Admin' : (isVIP ? 'VIP' : 'Chưa có'));
   
-  // ADMIN FLOAT - hiện nếu admin
+  // Admin float - hiện nếu admin
   const af = document.getElementById('adminFloat');
   if(af){
     if(isRealAdmin(u)) af.classList.add('show');
@@ -650,7 +612,6 @@ window.closeModal = closeModal;
    ============================================================ */
 window.addEventListener('load', async () => {
   console.log('%c=== BONSICOLA TOOL ===', 'background:linear-gradient(135deg,#3b5bfd,#5b7cff);color:#fff;padding:6px 14px;border-radius:6px;font-weight:bold');
-  console.log('[API] URL:', window.API_URL || '/api/index.php');
 
   const cfg = loadConfig();
   const loginName = document.getElementById('loginSiteName');
@@ -667,23 +628,24 @@ window.addEventListener('load', async () => {
   // Auto login nếu có session
   const u = currentUser();
   if(u){
-    // Force admin
-    if(u.email === ADMIN_EMAIL){
+    // Force admin nếu đúng email
+    if(u.email === 'leminhdz@gmail.com'){
       u.is_admin = 1;
       refreshUser(u);
+      console.log('[INIT] ✅ Force admin session:', u.email);
     }
+    
     const res = await apiGetUser();
     if(res && res.success){
-      // Force lại lần nữa sau khi get user
+      // Force lại lần nữa sau khi get
       const fresh = res.user;
-      if(fresh.email === ADMIN_EMAIL){
+      if(fresh && fresh.email === 'leminhdz@gmail.com'){
         fresh.is_admin = 1;
         refreshUser(fresh);
       }
       enterApp();
     } else {
       clearSession();
-      console.log('[AUTH] Session không hợp lệ');
     }
   }
 });
