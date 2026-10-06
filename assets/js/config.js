@@ -1,12 +1,22 @@
+/* ============================================================
+   CLOUD SYNC - GitHub Gist
+   ============================================================ */
+window.CLOUD_CONFIG = {
+  gist_id: "",         // $2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm
+  token: "",           // ahvin20205c4417a0cc327f8390adcac761e6452c.js
+  enabled: true,      // ← Đổi thành true sau khi dán
+  poll_interval: 15000
+};
+
 window.APP_CONFIG = {
   site_name: "TOOL BONSICOLA",
   marquee: "⚡ Hệ Thống AI Phân Tích Dữ Liệu Thế Hệ Mới ✦ 🔐 Nạp tiền → mua key → mở tool",
   notice_title: "📢 Thông báo",
-  notice: "Chào mừng đến với TOOL LEMINH!\n• Nạp tiền → Admin duyệt → Tự động mua key\n• Có key mới mở được tool\n• Liên hệ: leminhdz@gmail.com",
+  notice: "Chào mừng đến với TOOL BONSICOLA!\n• Nạp tiền → Admin duyệt → Tự động mua key\n• Có key mới mở được tool\n• Liên hệ: leminhdz@gmail.com",
   login_avatar: "",
   bg_music: "",
   bg_music_enabled: 1,
-  bank: { name:"MB BANK", acc:"0123456789", holder:"LE HOANG MINH", qr:"" },
+  bank: { name:"MB BANK", acc:"0372834763", holder:"LE HOANG MINH", qr:"" },
   packages: [
     {id:'p1',name:'VIP 1 Ngày',days:1,price:45000,old:55000,disc:'-18%',sub:'Gói đặc quyền'},
     {id:'p3',name:'VIP 3 Ngày',days:3,price:120000,old:150000,disc:'-20%',sub:'Gói đặc quyền'},
