@@ -1,39 +1,33 @@
 /* ============================================================
-   CLOUD - GitHub Gist
+   CLOUD - JSONBin.io
    ============================================================
    HƯỚNG DẪN:
-   1. Vào https://gist.github.com tạo gist mới
-      - Filename: leminh-data.json
-      - Content: {}  (2 ký tự)
-      - Create secret gist
-      - Copy Gist ID từ URL
-   2. Vào https://github.com/settings/tokens
-      - Generate new token (classic)
-      - Tick ô "gist" → Generate
-      - Copy token
-   3. Dán vào 2 dòng dưới + đổi enabled thành true
+   1. Vào https://jsonbin.io → Sign up (bằng Google)
+   2. Bins → Create Bin → Content: {} → Create
+   3. Copy Bin ID từ URL
+   4. Dán vào bin_id bên dưới
    ============================================================ */
 window.CLOUD_CONFIG = {
-  gist_id: "$2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm",            // ← $2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm
-  token: "2b4ced53dc9e6a0425fb2c094eb8a9ac.js",              // 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
-  enabled: true,         // ← ĐỔI THÀNH true sau khi dán
-  poll_interval: 5000     // 5 giây (test nhanh). Sau đổi thành 15000
+  bin_id: "2b4ced53dc9e6a0425fb2c094eb8a9ac.js",  // ← DÁN BIN ID VÀO ĐÂY (VD: "68f2a1b3c4d5")
+  master_key: "$2a$10$nom9gdEv9MB3iCWIKZ5CPuyPDCCTKVy7bBV3jsvEzCrE0jcy1MCdm",
+  enabled: true,         // ← Đã bật, chỉ cần điền bin_id
+  poll_interval: 5000    // 5s test, đổi thành 15000 nếu muốn tiết kiệm
 };
 
 window.APP_CONFIG = {
-  site_name: "TOOL BONSICOLA",
+  site_name: "BONSICOLA",
   marquee: "⚡ Hệ Thống AI Phân Tích Dữ Liệu Thế Hệ Mới ✦ 🔐 Nạp tiền → mua key → mở tool",
   notice_title: "📢 Thông báo",
-  notice: "Chào mừng đến với TOOL BONSICOLA!\n• Nạp tiền → Admin duyệt → Tự động mua key\n• Có key mới mở được tool\n• Liên hệ: leminhdz@gmail.com",
+  notice: "Chào mừng đến với BONSICOLA!\n• Nạp tiền → Admin duyệt → Tự động mua key\n• Có key mới mở được tool\n• Liên hệ: leminhdz@gmail.com",
   login_avatar: "",
   bg_music: "",
   bg_music_enabled: 1,
   bank: { name:"MB BANK", acc:"0123456789", holder:"LE HOANG MINH", qr:"" },
   packages: [
-    {id:'p1',name:'VIP 1 Ngày',days:1,price:45000,old:55000,disc:'-18%',sub:'Gói đặc quyền'},
-    {id:'p3',name:'VIP 3 Ngày',days:3,price:120000,old:150000,disc:'-20%',sub:'Gói đặc quyền'},
-    {id:'p7',name:'VIP 1 Tuần',days:7,price:250000,old:300000,disc:'-17%',sub:'Gói đặc quyền'},
-    {id:'p30',name:'VIP 1 Tháng',days:30,price:800000,old:1000000,disc:'-20%',sub:'Gói đặc quyền'}
+    {id:'p1',  name:'VIP 1 Ngày',  days:1,  price:10000,  old:15000,  disc:'-33%', sub:'Gói đặc quyền'},
+    {id:'p3',  name:'VIP 3 Ngày',  days:3,  price:30000,  old:45000,  disc:'-33%', sub:'Gói đặc quyền'},
+    {id:'p7',  name:'VIP 1 Tuần',  days:7,  price:80000,  old:120000, disc:'-33%', sub:'Gói đặc quyền'},
+    {id:'p30', name:'VIP 1 Tháng', days:30, price:200000, old:300000, disc:'-33%', sub:'Gói đặc quyền'}
   ],
   tools: [
     {name:"LC79 Tài Xỉu",slug:"lc79-tx",cat:"taixiu",panel:"taixiu",game_url:"https://lc79.bet",api_url:"https://wtx.tele68.com/v1/tx/sessions",image:"https://files.catbox.moe/ng8pg8.jfif",image_base64:"",hot:1,vip:1,is_new:0,enabled:1,maintenance:0},
