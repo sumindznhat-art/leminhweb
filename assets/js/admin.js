@@ -1,5 +1,5 @@
 /* ============================================================
-   ADMIN.JS - Panel quản trị
+   ADMIN.JS - FULL (dùng API PHP)
    ============================================================ */
 function openAdmin(){
   const u = currentUser();
@@ -11,29 +11,25 @@ function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
 function switchAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.atab === tab));
-  ['users','pending','apis','cloud','config','keys'].forEach(k => {
+  ['users','pending','apis','config','keys'].forEach(k => {
     const el = document.getElementById('admin' + k.charAt(0).toUpperCase() + k.slice(1) + 'View');
     if(el) el.style.display = (k === tab) ? 'block' : 'none';
   });
   if(tab === 'users')   renderAdminUsers();
   if(tab === 'pending') renderAdminPending();
   if(tab === 'apis')    renderAdminApis();
-  if(tab === 'cloud')   renderAdminCloud();
   if(tab === 'config')  renderAdminConfig();
   if(tab === 'keys')    renderAdminKeys();
 }
 
 /* ============ TAB USERS ============ */
-function renderAdminUsers(){
-  const db = loadDB();
+async function renderAdminUsers(){
   const box = document.getElementById('adminUsersView');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+
+  const res = await adminApi('user_list');
   box.innerHTML = '';
-  const emails = Object.keys(db.users).sort((a,b) => {
-    const A = db.users[a], B = db.users[b];
-    if(A.isAdmin && !B.isAdmin) return -1;
-    if(!A.isAdmin && B.isAdmin) return 1;
-    return (B.lastLogin||0) - (A.lastLogin||0);
-  });
+
   const add = document.createElement('div');
   add.className = 'adm-section';
   add.innerHTML = `<h4><i class="fa-solid fa-user-plus"></i> Tạo user mới</h4>
@@ -42,121 +38,139 @@ function renderAdminUsers(){
     <input class="adm-input" id="admNewName" placeholder="Tên hiển thị...">
     <button class="green" onclick="admCreateUser()">TẠO USER</button>`;
   box.appendChild(add);
-  emails.forEach(email => {
-    const u = db.users[email];
-    const isExpired = !isRealAdmin(u) && (!u.keyExpiry || u.keyExpiry <= now());
+
+  if(!res.success || !res.users){
+    box.innerHTML += '<div style="text-align:center;padding:20px;color:#ef4444;font-weight:700">Lỗi tải users</div>';
+    return;
+  }
+
+  res.users.forEach(u => {
+    const isExpired = !u.is_admin && (!u.key_expiry || u.key_expiry <= now());
     const div = document.createElement('div');
     div.className = 'adm-user';
     const badges = [];
-    if(isRealAdmin(u)) badges.push('<span class="badge badge-admin">ADMIN</span>');
+    if(u.is_admin) badges.push('<span class="badge badge-admin">ADMIN</span>');
     else if(isExpired) badges.push('<span class="badge badge-exp">HẾT HẠN</span>');
     else badges.push('<span class="badge badge-vip">VIP</span>');
-    div.innerHTML = `<div class="r1"><div class="email">${esc(email)}</div><div>${badges.join(' ')}</div></div>
+
+    div.innerHTML = `
+      <div class="r1"><div class="email">${esc(u.email)}</div><div>${badges.join(' ')}</div></div>
       <div class="info">
         Tên: <b>${esc(u.name||'—')}</b><br>
-        Số dư: <b>${isRealAdmin(u)?'∞':fmt(u.balance)}</b><br>
-        Hạn key: <b>${isRealAdmin(u)?'∞':(u.keyExpiry?fmtDate(u.keyExpiry):'Chưa có')}</b><br>
-        IP: <b>${esc(u.ip||'—')}</b><br>
-        Đăng nhập: <b>${u.lastLogin?fmtDate(u.lastLogin):'—'}</b>
+        Số dư: <b>${u.is_admin ? '∞' : fmt(u.balance)}</b><br>
+        Hạn key: <b>${u.is_admin ? '∞' : (u.key_expiry ? fmtDate(u.key_expiry) : 'Chưa có')}</b><br>
+        <b style="color:#ef4444">IP: ${esc(u.ip||'—')}</b><br>
+        Đăng nhập: <b>${u.last_login ? fmtDate(u.last_login) : '—'}</b>
       </div>
       <div class="acts">
-        <button class="b1" onclick="admAddBalance('${email}')">+Tiền</button>
-        <button class="b2" onclick="admSetKey('${email}')">+Key</button>
-        <button class="b3" onclick="admResetKey('${email}')">Reset</button>
-        <button class="b4" onclick="admToggleAdmin('${email}')">${isRealAdmin(u)?'Gỡ':'Cấp'} Admin</button>
-        <button class="b5" onclick="admDelete('${email}')">Xoá</button>
+        <button class="b1" onclick="admAddBalance('${esc(u.email)}')">+Tiền</button>
+        <button class="b2" onclick="admSetKey('${esc(u.email)}')">+Key</button>
+        <button class="b3" onclick="admResetKey('${esc(u.email)}')">Reset</button>
+        <button class="b4" onclick="admToggleAdmin('${esc(u.email)}', ${u.is_admin ? 1 : 0})">${u.is_admin ? 'Gỡ Admin' : 'Cấp Admin'}</button>
+        <button class="b5" onclick="admDelete('${esc(u.email)}')">Xoá</button>
       </div>`;
     box.appendChild(div);
   });
 }
-function admCreateUser(){
+
+async function admCreateUser(){
   const email = document.getElementById('admNewEmail').value.trim().toLowerCase();
   const pass = document.getElementById('admNewPass').value;
   const name = document.getElementById('admNewName').value.trim() || email.split('@')[0];
   if(!email || !pass){ alert('⚠️ Nhập đủ!'); return; }
-  if(getUser(email)){ alert('⚠️ Đã tồn tại!'); return; }
-  setUser(email, {email, password:pass, name, balance:0, keyExpiry:0, isAdmin:false, ip:'—', lastLogin:0,
-    createdAt:now(), history:[], keyHistory:[], lastApi:'', lastTool:'', lastToolAt:0});
-  if(CLOUD.enabled()) CLOUD.push(true);
-  renderAdminUsers();
+  const res = await apiRegister(email, pass, name);
+  if(!res.success){ alert('❌ ' + res.error); return; }
   alert('✅ Đã tạo: ' + email);
+  renderAdminUsers();
 }
-function admAddBalance(email){
-  const u = getUser(email); if(!u) return;
+
+async function admAddBalance(email){
   const v = prompt('Cộng/trừ tiền cho ' + email + '\n(số dương = cộng, âm = trừ)', '50000');
   if(v === null) return;
   const n = parseInt(v, 10);
   if(isNaN(n)){ alert('❌ Số không hợp lệ!'); return; }
-  u.balance = Math.max(0, (u.balance||0) + n);
-  u.history.push({type:'admin', amount:n, balance:u.balance, at:now(), note:'Admin điều chỉnh'});
-  setUser(email, u);
-  if(CLOUD.enabled()) CLOUD.push(true);
+
+  // Lấy balance hiện tại
+  const listRes = await adminApi('user_list');
+  const user = listRes.users?.find(u => u.email === email);
+  if(!user){ alert('❌ Không tìm thấy user'); return; }
+  const newBalance = Math.max(0, parseInt(user.balance) + n);
+  const res = await adminApi('user_update', { email, balance: newBalance });
+  if(!res.success){ alert('❌ ' + res.error); return; }
+  alert('✅ Số dư mới: ' + fmt(newBalance));
   renderAdminUsers();
-  alert('✅ Số dư mới: ' + fmt(u.balance));
 }
-function admSetKey(email){
-  const u = getUser(email); if(!u) return;
+
+async function admSetKey(email){
   const v = prompt('Cấp thêm bao nhiêu NGÀY?', '7');
   if(v === null) return;
   const d = parseInt(v, 10);
   if(isNaN(d) || d <= 0){ alert('❌ Số ngày không hợp lệ!'); return; }
-  const base = (u.keyExpiry && u.keyExpiry > now()) ? u.keyExpiry : now();
-  u.keyExpiry = base + d*24*3600*1000;
-  u.keyHistory.push({code:'ADMIN-GRANT', days:d, at:now(), via:'admin'});
-  setUser(email, u);
-  if(CLOUD.enabled()) CLOUD.push(true);
+
+  const listRes = await adminApi('user_list');
+  const user = listRes.users?.find(u => u.email === email);
+  if(!user){ alert('❌ Không tìm thấy user'); return; }
+  const base = (user.key_expiry > now()) ? parseInt(user.key_expiry) : now();
+  const newExpiry = base + d * 24 * 3600 * 1000;
+  const res = await adminApi('user_update', { email, key_expiry: newExpiry });
+  if(!res.success){ alert('❌ ' + res.error); return; }
+  alert('✅ Đã cấp ' + d + ' ngày!\nHạn mới: ' + fmtDate(newExpiry));
   renderAdminUsers();
-  alert('✅ Đã cấp ' + d + ' ngày!');
 }
-function admResetKey(email){
-  const u = getUser(email); if(!u) return;
+
+async function admResetKey(email){
   if(!confirm('Reset key của ' + email + '?')) return;
-  u.keyExpiry = 0;
-  setUser(email, u);
-  if(CLOUD.enabled()) CLOUD.push(true);
-  renderAdminUsers();
+  const res = await adminApi('user_update', { email, key_expiry: 0 });
+  if(!res.success){ alert('❌ ' + res.error); return; }
   alert('✅ Đã reset!');
+  renderAdminUsers();
 }
-function admToggleAdmin(email){
+
+async function admToggleAdmin(email, current){
   const me = currentUser();
   if(email === me.email){ alert('❌ Không thể tự gỡ!'); return; }
-  const u = getUser(email); if(!u) return;
-  if(u.isAdmin){ if(!confirm('Gỡ admin?')) return; u.isAdmin = false; }
-  else { if(!confirm('Cấp admin?')) return; u.isAdmin = true; }
-  setUser(email, u);
-  if(CLOUD.enabled()) CLOUD.push(true);
-  renderAdminUsers();
+  const newVal = current ? 0 : 1;
+  if(!confirm((newVal ? 'Cấp' : 'Gỡ') + ' quyền ADMIN cho ' + email + '?')) return;
+  const res = await adminApi('user_update', { email, is_admin: newVal });
+  if(!res.success){ alert('❌ ' + res.error); return; }
   alert('✅ Đã cập nhật!');
+  renderAdminUsers();
 }
-function admDelete(email){
+
+async function admDelete(email){
   const me = currentUser();
   if(email === me.email){ alert('❌ Không thể tự xoá!'); return; }
   if(email === 'leminhdz@gmail.com'){ alert('❌ Không thể xoá admin tổng!'); return; }
   if(!confirm('XOÁ: ' + email + '?')) return;
-  delUser(email);
-  if(CLOUD.enabled()) CLOUD.push(true);
-  renderAdminUsers();
+  const res = await adminApi('user_delete', { email });
+  if(!res.success){ alert('❌ ' + res.error); return; }
   alert('✅ Đã xoá!');
+  renderAdminUsers();
 }
 
 /* ============ TAB DUYỆT TIỀN ============ */
-function renderAdminPending(){
-  const arr = loadDeposits().filter(d => d.status === 'pending').sort((a,b) => b.createdAt - a.createdAt);
+async function renderAdminPending(){
   const box = document.getElementById('adminPendingView');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+  const res = await adminApi('deposit_pending');
   box.innerHTML = '';
-  if(!arr.length){
+
+  if(!res.success || !res.deposits || !res.deposits.length){
     box.innerHTML = '<div class="adm-section" style="text-align:center;color:#94a3b8;font-weight:700">✨ Không có yêu cầu nào</div>';
     return;
   }
-  arr.forEach(d => {
+
+  res.deposits.forEach(d => {
     const el = document.createElement('div');
     el.className = 'pending-item';
-    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
         <div style="font-weight:800;color:#3b5bfd;font-size:12.5px;word-break:break-all">${esc(d.email)}</div>
         <div class="amt">${fmt(d.amount)}</div>
       </div>
       <div style="font-size:11px;color:#64748b;font-weight:600">
-        ${esc(d.method === 'bank' ? 'Ngân hàng' : 'Thẻ cào')} · ${fmtDate(d.createdAt)}<br>
+        <b style="color:#ef4444">IP: ${esc(d.ip||'—')}</b><br>
+        ${esc(d.method === 'bank' ? 'Ngân hàng' : 'Thẻ cào')} · ${fmtDate(d.created_at)}<br>
         Ghi chú: <b>${esc(d.note||'—')}</b>
       </div>
       <div class="acts">
@@ -166,40 +180,35 @@ function renderAdminPending(){
     box.appendChild(el);
   });
 }
-function approveDeposit(id){
-  const arr = loadDeposits();
-  const d = arr.find(x => x.id === id); if(!d) return;
-  const u = getUser(d.email);
-  if(!u){ alert('❌ User không tồn tại!'); return; }
-  u.balance = (u.balance||0) + d.amount;
-  u.history.push({type:'deposit', amount:d.amount, balance:u.balance, at:now(), note:'Nạp ' + (d.method||'bank')});
-  setUser(d.email, u);
-  updateDeposit(id, 'approved', 'Admin duyệt');
-  if(typeof autoBuyKeyForUser === 'function') autoBuyKeyForUser(u);
-  if(CLOUD.enabled()) CLOUD.push(true);
+
+async function approveDeposit(id){
+  const res = await adminApi('deposit_approve', { id });
+  if(!res.success){ alert('❌ ' + (res.error || 'Lỗi duyệt')); return; }
+  alert('✅ Đã duyệt! Tiền đã cộng + key đã tự động mua (nếu đủ).');
   renderAdminPending();
-  alert('✅ Đã duyệt ' + fmt(d.amount) + ' cho ' + d.email);
 }
-function rejectDeposit(id){
-  const arr = loadDeposits();
-  const d = arr.find(x => x.id === id); if(!d) return;
+
+async function rejectDeposit(id){
   const r = prompt('Lý do từ chối:', 'Không hợp lệ') || 'Không hợp lệ';
-  updateDeposit(id, 'rejected', r);
-  if(CLOUD.enabled()) CLOUD.push(true);
-  renderAdminPending();
+  const res = await adminApi('deposit_reject', { id, reason: r });
+  if(!res.success){ alert('❌ ' + res.error); return; }
   alert('❌ Đã từ chối');
+  renderAdminPending();
 }
 
 /* ============ TAB API USERS ============ */
-function renderAdminApis(){
-  const db = loadDB();
+async function renderAdminApis(){
   const box = document.getElementById('adminApisView');
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+  const res = await adminApi('user_list');
   box.innerHTML = '';
+
   const intro = document.createElement('div');
   intro.className = 'adm-section';
-  intro.innerHTML = '<h4><i class="fa-solid fa-code"></i> API user đã truy cập</h4><p style="font-size:11px;color:#64748b;font-weight:600">Xem user đang dùng tool nào và API tương ứng</p>';
+  intro.innerHTML = '<h4><i class="fa-solid fa-code"></i> User đang dùng tool nào</h4><p style="font-size:11px;color:#64748b;font-weight:600">Xem user đã truy cập tool và API tương ứng</p>';
   box.appendChild(intro);
-  const users = Object.values(db.users).filter(u => u.lastApi).sort((a,b) => (b.lastToolAt||0) - (a.lastToolAt||0));
+
+  const users = (res.users || []).filter(u => u.last_api);
   if(!users.length){
     const d = document.createElement('div');
     d.className = 'adm-section'; d.style.textAlign = 'center';
@@ -207,99 +216,22 @@ function renderAdminApis(){
     d.textContent = 'Chưa có user dùng tool';
     box.appendChild(d); return;
   }
+
+  users.sort((a,b) => (b.last_tool_at||0) - (a.last_tool_at||0));
   users.forEach(u => {
     const el = document.createElement('div');
     el.className = 'api-user';
-    el.innerHTML = `<div class="em">${esc(u.email)}</div>
+    el.innerHTML = `
+      <div class="em">${esc(u.email)}</div>
       <div style="font-size:11px;color:#64748b;font-weight:600">
-        Tool: <b style="color:#3b5bfd">${esc(u.lastTool||'—')}</b><br>
-        Lúc: <b>${u.lastToolAt?fmtDate(u.lastToolAt):'—'}</b><br>
-        IP: <b>${esc(u.ip||'—')}</b>
+        Tool: <b style="color:#3b5bfd">${esc(u.last_tool||'—')}</b><br>
+        Lúc: <b>${u.last_tool_at ? fmtDate(u.last_tool_at) : '—'}</b><br>
+        IP: <b style="color:#ef4444">${esc(u.ip||'—')}</b>
       </div>
-      <div class="api-line"><span style="color:#f59e0b">API:</span> ${esc(u.lastApi)}</div>`;
-    box.appendChild(el);
+      <div class="api-line"><span style="color:#f59e0b">API:</span> ${esc(u.last_api)}</div>`;
+    box.appendChild(apiLine_split(el));
+    function apiLine_split(x){ return x; }
   });
-}
-
-/* ============ TAB CLOUD ============ */
-function renderAdminCloud(){
-  const box = document.getElementById('adminCloudView');
-  box.innerHTML = '';
-  const cfg = window.CLOUD_CONFIG || {};
-  const st = CLOUD.status();
-  const enabled = !!cfg.enabled;
-  const hasId = !!(cfg.gist_id && cfg.gist_id.length > 5);
-  const hasToken = !!(cfg.token && cfg.token.length > 10);
-  const isClassic = !!(cfg.token && cfg.token.startsWith('ghp_'));
-  const isFine = !!(cfg.token && cfg.token.startsWith('github_pat_'));
-
-  const statusSec = document.createElement('div');
-  statusSec.className = 'adm-section';
-  statusSec.style.background = st.color + '22';
-  statusSec.style.borderColor = st.color;
-  statusSec.style.borderStyle = 'solid';
-  statusSec.innerHTML = `<h4 style="color:${st.color}"><i class="fa-solid fa-cloud"></i> Cloud: ${st.label}</h4>
-    <div style="font-size:12px;color:#475569;font-weight:600;line-height:2">
-      Trạng thái: <b style="color:${enabled?'#10b981':'#ef4444'}">${enabled?'BẬT':'TẮT'}</b><br>
-      Gist ID: <b style="color:${hasId?'#10b981':'#ef4444'}">${hasId ? esc(cfg.gist_id.slice(0,14))+'...' : '❌ CHƯA CÓ'}</b><br>
-      Token: <b style="color:${hasToken?'#10b981':'#ef4444'}">${hasToken ? esc(cfg.token.slice(0,12))+'...' : '❌ CHƯA CÓ'}</b>
-      ${hasToken ? `<span style="font-size:11px;margin-left:6px;color:${isClassic?'#10b981':'#f59e0b'}">
-        ${isClassic?'✅ Classic':isFine?'⚠️ Fine-grained':'⚠️ Format lạ'}</span>` : ''}<br>
-      Pull: <b>${CLOUD._pullCount||0}</b> lần · Push: <b>${CLOUD._pushCount||0}</b> lần<br>
-      Lỗi: <b style="color:${CLOUD._lastError?'#ef4444':'#10b981'}">${esc(CLOUD._lastError||'(không)')}</b>
-    </div>
-    <div style="margin-top:10px">
-      <button class="green" onclick="cloudTest()">🧪 TEST</button>
-      <button class="orange" onclick="cloudForcePull()">⬇️ KÉO VỀ</button>
-      <button class="orange" onclick="cloudForcePush()">⬆️ ĐẨY LÊN</button>
-    </div>
-    <div id="cloudTestResult" style="margin-top:10px;font-size:12px;font-weight:700;color:#3b5bfd;line-height:1.6;word-break:break-word"></div>`;
-  box.appendChild(statusSec);
-
-  if(!enabled || !hasId || !hasToken){
-    const warn = document.createElement('div');
-    warn.className = 'adm-section';
-    warn.style.background = '#fef2f2';
-    warn.style.borderColor = '#fecaca';
-    warn.style.borderStyle = 'solid';
-    warn.innerHTML = `<h4 style="color:#ef4444">⚠️ CLOUD CHƯA HOẠT ĐỘNG</h4>
-      <div style="font-size:12.5px;color:#7f1d1d;font-weight:600;line-height:1.8">
-        Sửa file <code>assets/js/config.js</code>:<br>
-        1. Tạo Gist: gist.github.com (filename <b>leminh-data.json</b>, content <b>{}</b>)<br>
-        2. Tạo Token classic: github.com/settings/tokens (tick scope <b>gist</b>)<br>
-        3. Dán <code>gist_id</code> + <code>token</code> (<b>ghp_...</b>) vào CLOUD_CONFIG<br>
-        4. Đổi <code>enabled: true</code> → Push GitHub
-      </div>`;
-    box.appendChild(warn);
-  }
-}
-async function cloudTest(){
-  const r = document.getElementById('cloudTestResult');
-  if(!r) return;
-  r.textContent = '⏳ Đang test...'; r.style.color = '#f59e0b';
-  if(!CLOUD.enabled()){ r.textContent = '❌ Cloud chưa bật'; r.style.color = '#ef4444'; return; }
-  const res = await CLOUD.test();
-  r.textContent = (res.ok ? '✅ ' : '❌ ') + res.msg;
-  r.style.color = res.ok ? '#10b981' : '#ef4444';
-}
-async function cloudForcePull(){
-  const r = document.getElementById('cloudTestResult');
-  if(!r) return;
-  r.textContent = '⏳ Đang kéo...'; r.style.color = '#f59e0b';
-  if(!CLOUD.enabled()){ r.textContent = '❌ Cloud chưa bật'; r.style.color = '#ef4444'; return; }
-  localStorage.setItem(CLOUD_TS_KEY, '0');
-  const ok = await CLOUD.pull(false);
-  if(ok){ r.textContent = '✅ Đã kéo về'; r.style.color = '#10b981'; setTimeout(()=>{ renderAll(); renderAdminCloud(); }, 500); }
-  else { r.textContent = '⚠️ Không có dữ liệu mới: ' + (CLOUD._lastError||''); r.style.color = '#f59e0b'; }
-}
-async function cloudForcePush(){
-  const r = document.getElementById('cloudTestResult');
-  if(!r) return;
-  r.textContent = '⏳ Đang đẩy...'; r.style.color = '#f59e0b';
-  if(!CLOUD.enabled()){ r.textContent = '❌ Cloud chưa bật'; r.style.color = '#ef4444'; return; }
-  const ok = await CLOUD.push(true);
-  if(ok){ r.textContent = '✅ Đã đẩy lên Cloud'; r.style.color = '#10b981'; renderAdminCloud(); }
-  else { r.textContent = '❌ Lỗi: ' + (CLOUD._lastError||''); r.style.color = '#ef4444'; }
 }
 
 /* ============ TAB CẤU HÌNH ============ */
@@ -320,7 +252,7 @@ function renderAdminConfig(){
 
   const bank = document.createElement('div');
   bank.className = 'adm-section';
-  bank.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng + QR nạp tiền</h4>
+  bank.innerHTML = `<h4><i class="fa-solid fa-building-columns"></i> Ngân hàng + QR</h4>
     <input class="adm-input" id="cfgBankName" value="${esc(cfg.bank.name)}" placeholder="Tên NH">
     <input class="adm-input" id="cfgBankAcc" value="${esc(cfg.bank.acc)}" placeholder="Số TK">
     <input class="adm-input" id="cfgBankHolder" value="${esc(cfg.bank.holder)}" placeholder="Chủ TK">
@@ -346,7 +278,6 @@ function renderAdminConfig(){
   const lg = document.createElement('div');
   lg.className = 'adm-section';
   lg.innerHTML = `<h4><i class="fa-solid fa-image"></i> Avatar đăng nhập</h4>
-    <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px">Avatar này hiện ở màn đăng nhập/đăng ký</p>
     <textarea class="adm-textarea" id="cfgLoginAvatar" placeholder="Base64 avatar">${esc(cfg.login_avatar||'')}</textarea>
     <div style="text-align:center;margin:6px 0">${cfg.login_avatar ? `<img src="${cfg.login_avatar}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 0 0 3px rgba(56,189,248,.4)">` : ''}</div>
     <button class="green" onclick="saveCfgLoginAvatar()">💾 LƯU</button>
@@ -377,6 +308,7 @@ function renderAdminConfig(){
       <button class="red" onclick="deleteToolAt(${i})">Xoá</button>`;
     box.appendChild(tr);
   });
+
   const addT = document.createElement('div');
   addT.className = 'adm-section';
   addT.innerHTML = '<h4><i class="fa-solid fa-plus"></i> Thêm tool</h4><button class="green" onclick="addNewTool()">➕ THÊM</button>';
@@ -392,7 +324,6 @@ function saveCfgSite(){
   saveConfig(c);
   renderAll();
   document.getElementById('loginSiteName').textContent = c.site_name;
-  if(CLOUD.enabled()) CLOUD.push(true);
   alert('✅ Đã lưu!');
 }
 function saveCfgBank(){
@@ -403,7 +334,6 @@ function saveCfgBank(){
   const qr = document.getElementById('cfgBankQR').value.trim();
   c.bank.qr = qr ? (normalizeAvatar(qr) || qr) : '';
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
   alert('✅ Đã lưu bank!');
 }
@@ -411,7 +341,6 @@ function clearCfgBankQR(){
   if(!confirm('Xoá QR?')) return;
   const c = loadConfig(); c.bank.qr = '';
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
 }
 function saveCfgMusic(){
@@ -419,7 +348,6 @@ function saveCfgMusic(){
   c.bg_music = document.getElementById('cfgMusic').value.trim() || '';
   c.bg_music_enabled = document.getElementById('cfgMusicEnabled').checked ? 1 : 0;
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   alert('✅ Đã lưu nhạc!');
   if(typeof reloadMusic === 'function') reloadMusic();
 }
@@ -434,7 +362,6 @@ function clearCfgMusic(){
   if(!confirm('Xoá nhạc?')) return;
   const c = loadConfig(); c.bg_music = '';
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
   if(typeof stopMusic === 'function') stopMusic();
 }
@@ -444,7 +371,6 @@ function saveCfgLoginAvatar(){
   c.login_avatar = v ? (normalizeAvatar(v) || v) : '';
   saveConfig(c);
   if(c.login_avatar) document.getElementById('loginAvatarImg').src = c.login_avatar;
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
   alert('✅ Đã lưu avatar login!');
 }
@@ -453,7 +379,6 @@ function clearCfgLoginAvatar(){
   const c = loadConfig(); c.login_avatar = '';
   saveConfig(c);
   document.getElementById('loginAvatarImg').src = DEFAULT_AVATAR;
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
 }
 function saveCfgTools(){
@@ -463,7 +388,6 @@ function saveCfgTools(){
     if(!Array.isArray(j)) throw new Error('Không phải mảng');
     c.tools = j;
     saveConfig(c);
-    if(CLOUD.enabled()) CLOUD.push(true);
     renderAdminConfig(); renderTools();
     alert('✅ Đã lưu!');
   }catch(e){ alert('❌ JSON lỗi: ' + e.message); }
@@ -477,7 +401,6 @@ function saveCfgToolAt(i){
     else t[f] = el.value;
   });
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig(); renderTools();
   alert('✅ Đã lưu tool!');
 }
@@ -485,7 +408,6 @@ function toggleToolVip(i){
   const c = loadConfig();
   c.tools[i].vip = c.tools[i].vip ? 0 : 1;
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
 }
 function deleteToolAt(i){
@@ -493,7 +415,6 @@ function deleteToolAt(i){
   const c = loadConfig();
   c.tools.splice(i, 1);
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig(); renderTools();
 }
 function addNewTool(){
@@ -502,15 +423,14 @@ function addNewTool(){
     game_url:'', api_url:'', image:'', image_base64:'',
     hot:0, vip:1, is_new:1, enabled:1, maintenance:0});
   saveConfig(c);
-  if(CLOUD.enabled()) CLOUD.push(true);
   renderAdminConfig();
 }
 
 /* ============ TAB KEYS ============ */
-function renderAdminKeys(){
-  const arr = loadKeys();
+async function renderAdminKeys(){
   const box = document.getElementById('adminKeysView');
-  box.innerHTML = '';
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-weight:700">Đang tải...</div>';
+
   const add = document.createElement('div');
   add.className = 'adm-section';
   add.innerHTML = `<h4><i class="fa-solid fa-key"></i> Tạo key mới</h4>
@@ -518,37 +438,44 @@ function renderAdminKeys(){
     <input class="adm-input" type="number" id="keyQty" value="1" placeholder="Số lượng">
     <input class="adm-input" id="keyNote" placeholder="Ghi chú">
     <button class="green" onclick="admGenKeys()">🔑 TẠO KEY</button>`;
+
+  const res = await adminApi('key_list');
+  box.innerHTML = '';
   box.appendChild(add);
+
   const list = document.createElement('div');
   list.className = 'adm-section';
-  list.innerHTML = `<h4><i class="fa-solid fa-list"></i> Danh sách key (${arr.length})</h4>`;
-  arr.slice().reverse().forEach(k => {
+  list.innerHTML = `<h4><i class="fa-solid fa-list"></i> Danh sách key (${res.keys?.length || 0})</h4>`;
+
+  (res.keys || []).forEach(k => {
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:6px;background:#fff;font-size:11px';
-    d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-        <div style="font-family:monospace;font-weight:800;color:${k.used?'#94a3b8':'#3b5bfd'};font-size:12px">${esc(k.key)}</div>
-        <div style="font-size:10px;font-weight:800;color:${k.used?'#ef4444':'#10b981'}">${k.used?'ĐÃ DÙNG':'CHƯA DÙNG'}</div>
+    d.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+        <div style="font-family:monospace;font-weight:800;color:${k.used?'#94a3b8':'#3b5bfd'};font-size:12px">${esc(k.code)}</div>
+        <div style="font-size:10px;font-weight:800;color:${k.used?'#ef4444':'#10b981'}">${k.used ? 'ĐÃ DÙNG' : 'CHƯA DÙNG'}</div>
       </div>
       <div style="color:#64748b;margin-top:3px">${k.days} ngày · ${esc(k.note||'—')}</div>
-      ${k.used ? `<div style="color:#94a3b8;font-size:10px">→ ${esc(k.usedBy)} (${fmtDate(k.usedAt)})</div>` : ''}
-      <button style="margin-top:5px;padding:4px 8px;border-radius:6px;border:none;background:#ef4444;color:#fff;font-size:10px;font-weight:700;cursor:pointer" onclick="admDelKey('${k.key}')">Xoá</button>`;
+      ${k.used ? `<div style="color:#94a3b8;font-size:10px">→ ${esc(k.used_by)} (${fmtDate(k.used_at)})</div>` : ''}
+      <button style="margin-top:5px;padding:4px 8px;border-radius:6px;border:none;background:#ef4444;color:#fff;font-size:10px;font-weight:700;cursor:pointer" onclick="admDelKey('${esc(k.code)}')">Xoá</button>`;
     list.appendChild(d);
   });
   box.appendChild(list);
 }
-function admGenKeys(){
+
+async function admGenKeys(){
   const days = parseInt(document.getElementById('keyDays').value, 10) || 1;
   const qty  = parseInt(document.getElementById('keyQty').value, 10) || 1;
   const note = document.getElementById('keyNote').value.trim();
-  const arr = [];
-  for(let i = 0; i < qty; i++) arr.push(createKey(days, note).key);
-  if(CLOUD.enabled()) CLOUD.push(true);
-  alert('✅ Đã tạo ' + qty + ' key:\n\n' + arr.join('\n'));
+  const res = await adminApi('key_create', { days, qty, note });
+  if(!res.success){ alert('❌ ' + res.error); return; }
+  alert('✅ Đã tạo ' + qty + ' key:\n\n' + res.keys.join('\n'));
   renderAdminKeys();
 }
-function admDelKey(code){
-  if(!confirm('Xoá key?')) return;
-  saveKeys(loadKeys().filter(k => k.key !== code));
-  if(CLOUD.enabled()) CLOUD.push(true);
+
+async function admDelKey(code){
+  if(!confirm('Xoá key: ' + code + '?')) return;
+  const res = await adminApi('key_delete', { code });
+  if(!res.success){ alert('❌ ' + res.error); return; }
   renderAdminKeys();
 }
