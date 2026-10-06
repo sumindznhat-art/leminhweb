@@ -1,4 +1,42 @@
-/* Avatar long-press */
+/* ==== MUSIC ==== */
+let _musicPlaying=false;
+function initMusic(){
+  const cfg=loadConfig();
+  const a=document.getElementById('bgMusic');
+  if(!cfg.bg_music){a.src='';document.getElementById('musicBtn').style.display='none';return;}
+  document.getElementById('musicBtn').style.display='flex';
+  a.src=cfg.bg_music;
+  a.volume=0.5;
+  const saved=localStorage.getItem(MUSIC_ON_KEY);
+  const shouldPlay=saved===null?(cfg.bg_music_enabled==1):(saved==='1');
+  if(shouldPlay){playMusic();}
+  updateMusicBtn();
+}
+function playMusic(){
+  const a=document.getElementById('bgMusic');
+  if(!a.src)return;
+  a.play().then(()=>{_musicPlaying=true;updateMusicBtn();}).catch(()=>{_musicPlaying=false;updateMusicBtn();});
+}
+function stopMusic(){
+  const a=document.getElementById('bgMusic');
+  a.pause();_musicPlaying=false;updateMusicBtn();
+}
+function toggleMusic(){
+  if(_musicPlaying){stopMusic();localStorage.setItem(MUSIC_ON_KEY,'0');}
+  else{playMusic();localStorage.setItem(MUSIC_ON_KEY,'1');}
+}
+function updateMusicBtn(){
+  const b=document.getElementById('musicBtn');
+  if(!b)return;
+  if(_musicPlaying){b.innerHTML='<i class="fa-solid fa-volume-high"></i>';b.classList.add('playing');}
+  else{b.innerHTML='<i class="fa-solid fa-volume-xmark"></i>';b.classList.remove('playing');}
+}
+function reloadMusic(){
+  const a=document.getElementById('bgMusic');
+  a.pause();
+  initMusic();
+}
+/* ==== AVATAR LONG-PRESS ==== */
 (function(){
   const trigger=document.getElementById('avatarTrigger');if(!trigger)return;
   const HOLD_MS=1200;let timer=null,holding=false,sx=0,sy=0,moved=false;const TOL=12;
@@ -19,6 +57,7 @@ function openAvatarModal(){
   const pv=document.getElementById('avPreview');
   let s=null;try{s=localStorage.getItem(AVATAR_KEY);}catch(e){}
   document.getElementById('avStatus').textContent='';
+  document.getElementById('avModalTitle').textContent='🎀 Đổi Avatar của bạn';
   if(s){pv.innerHTML=`<img src="${s}">`;inp.value='';}else{pv.innerHTML='🎀';inp.value='';}
   m.classList.add('show');
 }
@@ -47,7 +86,7 @@ function resetAvatar(){
   const st=document.getElementById('avStatus');st.style.color='#0ea5e9';st.textContent='↩️ Reset mặc định';
   setTimeout(()=>st.textContent='',1400);
 }
-/* Drawer */
+/* ==== DRAWER ==== */
 function openDrawer(){
   document.getElementById('drawer').classList.add('show');
   document.getElementById('drawerMask').classList.add('show');
@@ -61,7 +100,7 @@ function closeDrawer(){
   document.getElementById('drawer').classList.remove('show');
   document.getElementById('drawerMask').classList.remove('show');
 }
-/* History */
+/* ==== HISTORY ==== */
 function openHistoryDeposit(){
   closeDrawer();
   const u=currentUser();if(!u)return;
@@ -94,7 +133,7 @@ function openHistoryKey(){
     box.innerHTML='';
     list.forEach(h=>{
       const el=document.createElement('div');el.className='info-row';el.style.margin='0 0 8px';
-      el.innerHTML=`<div><div class="lbl">${h.via==='admin'?'Admin cấp':h.via==='auto'?'Tự động mua':'Tự nhập'}</div>
+      el.innerHTML=`<div><div class="lbl">${h.via==='admin'?'Admin cấp':h.via==='auto'?'Tự động mua':h.via==='buy'?'Mua VIP':'Tự nhập'}</div>
         <div style="font-size:11px;font-family:monospace;color:#3b5bfd;font-weight:800">${esc(h.code)}</div>
         <div style="font-size:11px;color:#94a3b8">${fmtDate(h.at)}</div></div>
         <div style="text-align:right"><div class="val" style="color:#10b981">+${h.days} ngày</div></div>`;
@@ -103,7 +142,7 @@ function openHistoryKey(){
   }
   document.getElementById('historyModal').classList.add('show');
 }
-/* Pages */
+/* ==== PAGES ==== */
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -115,7 +154,7 @@ function showPage(name){
   if(name==='profile')renderProfile();
   if(name==='tools')renderTools();
 }
-/* Clock */
+/* ==== CLOCK ==== */
 let clockStarted=false;
 function startClock(){
   if(clockStarted)return;clockStarted=true;
@@ -126,7 +165,7 @@ function startClock(){
   }
   tick();setInterval(tick,1000);
 }
-/* Tools list */
+/* ==== TOOLS ==== */
 let activeCat='all';
 function renderTools(){
   const cfg=loadConfig();const u=currentUser();
@@ -167,7 +206,7 @@ function renderTools(){
     box.appendChild(card);
   });
 }
-/* VIP */
+/* ==== VIP ==== */
 function renderVIPPage(){
   const u=currentUser();if(!u)return;
   const isVIP=u.isAdmin||(u.keyExpiry&&u.keyExpiry>now());
@@ -221,7 +260,7 @@ function autoBuyKeyForUser(user){
   user.keyHistory.push({code:'AUTO-'+p.id,days:p.days,at:now(),via:'auto'});
   setUser(user.email,user);
 }
-/* Deposit */
+/* ==== DEPOSIT (QR TO) ==== */
 function renderDeposit(){
   const u=currentUser();if(!u)return;
   document.getElementById('depBalance').textContent=u.isAdmin?'∞':fmt(u.balance);
@@ -232,9 +271,15 @@ function renderDeposit(){
   const cfg=loadConfig();const b=cfg.bank;
   document.getElementById('bankInfo').innerHTML=`
     <h4><i class="fa-solid fa-building-columns"></i> ${esc(b.name||'Ngân hàng')}</h4>
-    <div class="row"><span class="lbl">Số tài khoản</span><span class="val">${esc(b.acc||'—')}</span></div>
-    <div class="row"><span class="lbl">Chủ tài khoản</span><span class="val">${esc(b.holder||'—')}</span></div>
-    ${b.qr?`<div class="bank-qr"><img src="${b.qr}"><div style="font-size:11px;color:#64748b;font-weight:600;margin-top:6px">Quét QR để chuyển khoản</div></div>`:'<div class="bank-qr" style="color:#94a3b8;font-weight:600;font-size:12px">⚠️ Admin chưa cấu hình QR</div>'}
+    <div class="info-box">
+      <div class="row"><span class="lbl">Số tài khoản</span><span class="val">${esc(b.acc||'—')}</span></div>
+      <div class="row"><span class="lbl">Chủ tài khoản</span><span class="val">${esc(b.holder||'—')}</span></div>
+    </div>
+    <div class="bank-qr">
+      ${b.qr
+        ?`<img src="${b.qr}" alt="QR nạp tiền"><div class="hint">📱 Quét QR bằng app ngân hàng để chuyển khoản</div>`
+        :`<div class="empty">⚠️ Admin chưa cấu hình QR<br>Vui lòng chuyển khoản thủ công theo STK trên</div>`}
+    </div>
   `;
 }
 function openDepositModal(){document.getElementById('depositModal').classList.add('show');}
@@ -249,7 +294,7 @@ function submitDeposit(){
   closeModal('depositModal');
   alert('✅ Đã gửi yêu cầu nạp '+fmt(amt)+'!\n\nChờ Admin duyệt. Sau khi duyệt tự động mua key.');
 }
-/* Profile */
+/* ==== PROFILE ==== */
 function renderProfile(){
   const u=currentUser();if(!u)return;
   document.getElementById('profName').textContent=u.name||u.email.split('@')[0];
@@ -259,7 +304,7 @@ function renderProfile(){
   document.getElementById('profIP').textContent=u.ip||'—';
   document.getElementById('profRole').textContent=u.isAdmin?'ADMIN':(u.keyExpiry>now()?'VIP MEMBER':'THÀNH VIÊN');
 }
-/* Render all */
+/* ==== RENDER ALL ==== */
 function renderAll(){
   const u=currentUser();if(!u)return;
   const cfg=loadConfig();
@@ -273,8 +318,9 @@ function renderAll(){
   const isVIP=u.isAdmin||(u.keyExpiry&&u.keyExpiry>now());
   document.getElementById('curPackage').textContent=u.isAdmin?'Admin':(isVIP?'VIP':'Chưa có');
   renderTools();
+  updateMusicBtn();
 }
-/* Init */
+/* ==== INIT ==== */
 window.addEventListener('load',()=>{
   const cfg=loadConfig();
   document.getElementById('loginSiteName').textContent=cfg.site_name||'TOOL LEMINH';
