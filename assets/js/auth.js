@@ -8,11 +8,10 @@ function switchTab(t){
   else{tr.classList.add('active');tl.classList.remove('active');fl.style.display='none';fr.style.display='block';sub.textContent='Tạo tài khoản mới';}
 }
 async function fetchIP(){
-  try{
-    const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),4000);
+  try{const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),4000);
     const r=await fetch('https://api.ipify.org?format=json',{signal:ctrl.signal});
-    clearTimeout(t);const d=await r.json();return d.ip||'unknown';
-  }catch(e){return 'unknown';}
+    clearTimeout(t);const d=await r.json();return d.ip||'unknown';}
+  catch(e){return 'unknown';}
 }
 function doLogin(){
   const email=document.getElementById('loginEmail').value.trim().toLowerCase();
@@ -68,6 +67,7 @@ function enterApp(){
   if(typeof renderAll==='function')renderAll();
   if(typeof showPage==='function')showPage('home');
   if(typeof startClock==='function')startClock();
+  if(typeof initMusic==='function')initMusic();
 }
 function doLogout(){
   clearSession();
@@ -83,6 +83,7 @@ function doLogout(){
   document.getElementById('btnLoginText').innerHTML='<i class="fa-solid fa-right-to-bracket"></i> ĐĂNG NHẬP';
   document.getElementById('btnLogin').disabled=false;
   if(typeof closeGame==='function')closeGame();
+  if(typeof stopMusic==='function')stopMusic();
   switchTab('login');
 }
 function activateKey(){
@@ -108,6 +109,7 @@ function openVipFromKey(){
   if(typeof renderAll==='function')renderAll();
   if(typeof showPage==='function')showPage('vip');
   if(typeof startClock==='function')startClock();
+  if(typeof initMusic==='function')initMusic();
 }
 function openDepositFromKey(){
   const u=currentUser();if(!u)return;
@@ -116,4 +118,5 @@ function openDepositFromKey(){
   if(typeof renderAll==='function')renderAll();
   if(typeof showPage==='function')showPage('deposit');
   if(typeof startClock==='function')startClock();
+  if(typeof initMusic==='function')initMusic();
 }
