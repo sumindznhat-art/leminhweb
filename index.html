@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title> TOOL BONSICOLA</title>
+<title> BONSICOLA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -13,7 +13,7 @@
 
 <audio id="bgMusic" loop preload="none"></audio>
 
-<!-- ============ LOGIN ============ -->
+<!-- LOGIN -->
 <div id="login-screen">
   <div class="login-box">
     <h1 class="login-title" id="loginSiteName">TOOL BONSICOLA</h1>
@@ -55,12 +55,12 @@
   </div>
 </div>
 
-<!-- ============ MAIN APP ============ -->
+<!-- MAIN APP -->
 <div id="app">
   <div class="app-header">
     <div class="left">
       <button class="menu-btn" onclick="openDrawer()"><i class="fa-solid fa-bars"></i></button>
-      <div class="brand" id="hdrBrand">TOOL BONSICOLA</div>
+      <div class="brand" id="hdrBrand">BONSICOLA TOOL</div>
     </div>
     <div class="right">
       <button class="music-btn" id="musicBtn" onclick="toggleMusic()"><i class="fa-solid fa-volume-xmark"></i></button>
@@ -70,7 +70,6 @@
   </div>
 
   <div class="app-content" id="appContent">
-
     <!-- HOME -->
     <div class="page active" id="page-home">
       <div class="banner">
@@ -91,23 +90,19 @@
       <div class="grid-2">
         <div class="stat-card" onclick="showPage('deposit')">
           <div class="stat-icon blue"><i class="fa-regular fa-credit-card"></i></div>
-          <div class="stat-label">NẠP TIỀN</div>
-          <div class="stat-value">Giao dịch</div>
+          <div class="stat-label">NẠP TIỀN</div><div class="stat-value">Giao dịch</div>
         </div>
         <div class="stat-card" onclick="showPage('tools')">
           <div class="stat-icon purple"><i class="fa-solid fa-cubes"></i></div>
-          <div class="stat-label">KHO TOOL</div>
-          <div class="stat-value"><span id="toolCount">0</span> công cụ</div>
+          <div class="stat-label">KHO TOOL</div><div class="stat-value"><span id="toolCount">0</span> công cụ</div>
         </div>
         <div class="stat-card" onclick="showPage('vip')">
           <div class="stat-icon yellow"><i class="fa-solid fa-crown"></i></div>
-          <div class="stat-label">GÓI HIỆN TẠI</div>
-          <div class="stat-value" id="curPackage">Chưa có</div>
+          <div class="stat-label">GÓI HIỆN TẠI</div><div class="stat-value" id="curPackage">Chưa có</div>
         </div>
         <div class="stat-card" onclick="showPage('profile')">
           <div class="stat-icon green"><i class="fa-solid fa-wallet"></i></div>
-          <div class="stat-label">SỐ DƯ</div>
-          <div class="stat-value" id="curBalance">0đ</div>
+          <div class="stat-label">SỐ DƯ</div><div class="stat-value" id="curBalance">0đ</div>
         </div>
       </div>
       <div style="height:20px"></div>
@@ -117,7 +112,7 @@
     <div class="page" id="page-tools">
       <div class="tools-header">
         <h2>Kho Tiện Ích & Game</h2>
-        <p>Ấn "MỞ TOOL" để vào game </p>
+        <p>Ấn "MỞ TOOL" để vào game + đọc API</p>
         <div class="cat-tabs" id="catTabs"></div>
       </div>
       <div id="toolList"></div>
@@ -184,7 +179,6 @@
       <button class="logout-btn" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất</button>
       <div style="height:20px"></div>
     </div>
-
   </div>
 
   <div class="bottom-nav">
@@ -196,7 +190,7 @@
   </div>
 </div>
 
-<!-- DRAWER 3 GẠCH -->
+<!-- DRAWER -->
 <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-head">
@@ -213,10 +207,10 @@
     <button class="di" id="diAdmin" onclick="openAdmin()" style="display:none"><i class="fa-solid fa-shield-halved"></i> Quản trị Admin <span class="di-badge" id="pendBadge">0</span></button>
     <button class="di danger" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</button>
   </div>
-  <div class="drawer-foot">© TOOL BONIOS</div>
+  <div class="drawer-foot">© TOOL•BONIOS</div>
 </div>
 
-<!-- GAME SCREEN -->
+<!-- GAME SCREEN (đã ẩn API, chỉ hiện trạng thái) -->
 <div id="game-screen">
   <div class="gs-header">
     <button class="gs-close" onclick="closeGame()"><i class="fa-solid fa-arrow-left"></i></button>
@@ -224,16 +218,12 @@
       <img id="gsLogo" src="">
       <span id="gsName">Tool</span>
     </div>
-    <button class="gs-api" id="gsApiBtn" onclick="toggleApiInfo()" style="display:none"><i class="fa-solid fa-code"></i></button>
+    <div class="gs-status" id="gsStatus">
+      <span class="dot"></span> <span id="gsStatusText">Đang kết nối</span>
+    </div>
   </div>
   <iframe id="gameFrame" src="about:blank" class="game-frame" allow="fullscreen;autoplay"></iframe>
-  <div class="gs-api-info" id="gsApiInfo">
-    <div class="gs-api-row"><span>API:</span><code id="gsApiUrl">—</code></div>
-    <div class="gs-api-row"><span>Trạng thái:</span><b id="gsApiStatus">Chưa kết nối</b></div>
-    <div class="gs-api-row"><span>Phiên:</span><b id="gsSession">#---</b></div>
-    <div class="gs-api-row"><span>Dự đoán:</span><b id="gsResult">—</b></div>
-    <div class="gs-api-row"><span>Cập nhật:</span><b id="gsTime">—</b></div>
-  </div>
+
   <div class="drag-group" id="dragPanel" style="top:70px;right:14px">
     <div class="predict-card">
       <div class="card-header">
@@ -267,7 +257,7 @@
   </div>
 </div>
 
-<!-- MODAL NHẬP KEY -->
+<!-- MODAL KEY -->
 <div class="overlay" id="keyModal" onclick="if(event.target===this)closeModal('keyModal')">
   <div class="sheet" style="max-width:420px">
     <div class="sheet-grip"></div>
@@ -282,7 +272,7 @@
   </div>
 </div>
 
-<!-- MODAL NẠP TIỀN -->
+<!-- MODAL NẠP -->
 <div class="overlay" id="depositModal" onclick="if(event.target===this)closeModal('depositModal')">
   <div class="sheet" style="max-width:460px">
     <div class="sheet-grip"></div>
@@ -303,7 +293,7 @@
   </div>
 </div>
 
-<!-- MODAL ADMIN -->
+<!-- ADMIN PANEL -->
 <div class="overlay" id="adminPanel" onclick="if(event.target===this)closeModal('adminPanel')">
   <div class="admin-box">
     <div class="sheet-grip"></div>
